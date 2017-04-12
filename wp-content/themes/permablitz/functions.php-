@@ -1,0 +1,167 @@
+<?php
+/* ------------------------------------------------------------------------- *
+ *  Custom functions
+/* ------------------------------------------------------------------------- */
+	
+	// Add your custom functions here, or overwrite existing ones. Read more how to use:
+	// http://codex.wordpress.org/Child_Themes	
+	
+function mapDescription($atts) {
+
+	global $wpdb;
+
+	$a = shortcode_atts( array(
+        'location' => null,
+    ), $atts );
+
+	$map_locations_records = $wpdb->get_row($wpdb->prepare("SELECT * FROM ".$wpdb->prefix."map_locations where location_id=%d",$a['location']));
+    
+	$unmess_info_message = unserialize(base64_decode($map_locations_records->location_messages));
+
+	return wpautop( stripslashes($unmess_info_message['googlemap_infowindow_message_one']) );
+
+}
+
+add_shortcode( 'mapdescription', 'mapDescription' );
+
+function remove_Alx_widgets() {
+	unregister_widget('AlxPosts');
+unregister_widget('AlxTabs');
+}
+
+add_action( 'widgets_init', 'remove_Alx_widgets' );
+
+require_once( dirname( __FILE__ ) . '/inc/widgets.php' );
+require_once( dirname( __FILE__ ) . '/inc/acf.php' ) ;
+require_once( dirname( __FILE__ ) . '/functions/widgets/alx-posts.php' );
+require_once( dirname( __FILE__ ) . '/functions/widgets/alx-tabs.php' );
+
+add_image_size( 'logo-standard', 320, 320 );
+
+
+
+
+/*  Enqueue javascript
+/* ------------------------------------ */	
+if ( ! function_exists( 'pbz_scripts' ) ) {
+	
+	function pbz_scripts() {
+		if ( is_singular() ) { wp_enqueue_script( 'cycle2', get_stylesheet_directory_uri() . '/js/jquery.cycle2.js', array( 'jquery' ),'', true ); }
+	}  
+	
+}
+add_action( 'wp_enqueue_scripts', 'pbz_scripts' ); 
+
+function pbz_columns($atts) {
+
+	$a = shortcode_atts( array(
+        'location' => null,
+    ), $atts );
+
+    global $post;
+
+    $columns = get_field('columns', get_the_ID() );
+
+    $output = '';
+
+    foreach($columns as $column) {
+
+    	if ($column['image_position'] == 'Left') {
+    		$col_1 = '';
+    		if ($column['website'] != '') {
+	    		$col_1 = '<a href="' . $column['website'] . '" target="_blank">';
+	    	}
+    		$col_1 .= wp_get_attachment_image( $column['image'], 'logo-standard', false, array( 'class' => 'attachment-logo-standard aligncenter' ) ); 
+    		if ($column['website'] != '') {
+	    		$col_1 .= '</a>';
+	    	}
+    	} else {
+    		$col_1 = $column['content'];
+    	}
+    	$output .= do_shortcode('[column size="one-half"]'.$col_1.'[/column]');
+    	if ($column['image_position'] == 'Right') {
+    		$col_2 = '';
+    		if ($column['website'] != '') {
+	    		$col_2 = '<a href="' . $column['website'] . '" target="_blank">';
+	    	}
+    		$col_2 .= wp_get_attachment_image( $column['image'], 'logo-standard', false, array( 'class' => 'attachment-logo-standard aligncenter' ) );  
+    		if ($column['website'] != '') {
+	    		$col_2 .= '</a>';
+	    	}
+    	} else {
+    		$col_2 = $column['content'];
+    	}
+    	$output .= do_shortcode('[column size="one-half" last="true"]'.$col_2.'[/column]');
+
+    }
+
+	return $output;
+}
+
+add_shortcode( 'pbz_columns', 'pbz_columns');
+
+
+// Register Custom Post Type
+function blitz_request_post_type() {
+
+    $labels = array(
+        'name'                => _x( 'Blitz Requests', 'Post Type General Name', 'text_domain' ),
+        'singular_name'       => _x( 'Blitz Request', 'Post Type Singular Name', 'text_domain' ),
+        'menu_name'           => __( 'Blitz Request', 'text_domain' ),
+        'name_admin_bar'      => __( 'Blitz Request', 'text_domain' ),
+        'parent_item_colon'   => __( 'Parent Item:', 'text_domain' ),
+        'all_items'           => __( 'All Items', 'text_domain' ),
+        'add_new_item'        => __( 'Add New Item', 'text_domain' ),
+        'add_new'             => __( 'Add New', 'text_domain' ),
+        'new_item'            => __( 'New Item', 'text_domain' ),
+        'edit_item'           => __( 'Edit Item', 'text_domain' ),
+        'update_item'         => __( 'Update Item', 'text_domain' ),
+        'view_item'           => __( 'View Item', 'text_domain' ),
+        'search_items'        => __( 'Search Item', 'text_domain' ),
+        'not_found'           => __( 'Not found', 'text_domain' ),
+        'not_found_in_trash'  => __( 'Not found in Trash', 'text_domain' ),
+    );
+    $args = array(
+        'label'               => __( 'blitz_request', 'text_domain' ),
+        'description'         => __( 'Blitz Request Description', 'text_domain' ),
+        'labels'              => $labels,
+        'supports'            => array( 'title'),
+        'taxonomies'          => array( 'post_tag', ),
+        'hierarchical'        => false,
+        'public'              => true,
+        'show_ui'             => true,
+        'show_in_menu'        => true,
+        'menu_position'       => 20,
+        'show_in_admin_bar'   => true,
+        'show_in_nav_menus'   => true,
+        'can_export'          => true,
+        'has_archive'         => true,
+        'exclude_from_search' => true,
+        'publicly_queryable'  => true,
+        'capability_type'     => 'page',
+    );
+    register_post_type( 'blitz_request', $args );
+
+}
+
+// Hook into the 'init' action
+add_action( 'init', 'blitz_request_post_type', 0 );
+
+
+
+add_filter('frmpro_fields_replace_shortcodes', 'frm_make_shortcode', 10, 4);
+
+function frm_make_shortcode($replace_with, $tag, $atts, $field){
+  if(isset($atts['link_full'])){
+     $new_val = '';
+     foreach((array)$replace_with as $v){
+       if(is_numeric($v)){
+         $full = wp_get_attachment_image_src($v, 'full');
+         $thumb = wp_get_attachment_image_src($v);
+         $new_val .= '<a href="'. $full[0] .'"><img src="'. $thumb[0] .'" /></a>';
+       }
+     }
+     return $new_val;
+  }
+  return $replace_with;
+}

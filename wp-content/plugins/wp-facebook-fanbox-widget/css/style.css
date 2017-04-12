@@ -1,0 +1,80 @@
+#toplevel_page_viva_plugins .wp-submenu .wp-first-item {
+	display: none;
+}
+
+.tip{position: relative;top:3px;}
+.cmb_radio_inline_option {
+display: inline;
+padding-right: 18px;
+}
+.ads_bar{width:30%;margin-right:20px;margin-top:10px;}
+.right{float:right; width:50%;}
+
+.left{float:left;}
+.settings_wrap{width:48%;margin-top:10px};
+#fb_fanbx_frm select,
+#fb_fanbx_frm input[type="text"],
+#fb_fanbx_frm input[type="file"] {
+    min-width: 200px;
+}
+#fb_fanbx_frm label code {
+	background: none;
+}
+#fcbk_share {
+	clear: both;
+	height: 40px;
+}
+.fb_fanbx_css {
+	float: left;
+	margin-right: 10px;
+}
+.fb_fanbx_css a {
+	height: 40px;
+	display: block;
+}
+.fb_fanbx_css a:hover {
+	opacity: 0.9;
+}
+.fb_like_btn {
+	float: left;
+	position: relative;
+	top: -3px;
+}
+.fb_edge_widget_with_comment span {
+	width: 450px !important;
+}
+.fb_like_btn iframe {
+	max-width: 450px;
+}
+
+.headingclass p{font-size: 13px;}
+.p_content_bold{font-weight: bold;}
+.p_content_left{text-align: left;}
+.p_content_left_info{text-align: left;font-weight: normal;}
+.social_link_ul{padding-left: 17px;list-style:initial;}
+.social_link_ul li{text-align: left;}
+.vivawsb_pluginheader{font-size:18px; color:#1E6CBE;font-weight:bold;text-transform: uppercase;width: 98%;
+                      margin:15px 0px;padding:10px; background:#ffffff;border-left: 4px solid #1E6CBE; text-align:center;}
+.vivawsb_optionheader{font-size:14px; color:#1E6CBE;font-weight:bold;width: 500px;
+                      margin:15px 0px;padding:10px; background:#ffffff;border-left: 4px solid #1E6CBE; text-align: left;}	
+.vivawsb_form{font-size: 14px;}
+.vivawsb_button {background: #1E6CBE;color: #fff;border: 0 none; cursor: pointer;}
+.vivawsb_button:hover {background:#555555;}
+.left{max-width: 65%;    width: 65%; float: left;}
+.right{  max-width: 33%;    width: 33%;    float: right;}
+.bottom{width: 100%;}
+
+.bottom h3.title {width:92%;text-align: left;background:#fff ; cursor: pointer; }
+h3.title {
+     font-size: 18px;
+     color: #1E6CBE;
+     font-weight: bold;
+     text-transform: uppercase;
+     width: 680px;
+     margin: 15px 0px;
+     padding: 10px;
+     background: #ffffff;
+     border-left: 4px solid #1E6CBE;
+}
+.button1 {background: #1E6CBE;color: #fff;border: 0 none; cursor: pointer;width: 120px;height: 45px;}
+.button1:hover {background:#555555;}
