@@ -467,18 +467,6 @@ From the team @ Permablitz decentral',
 				'value' => 'intant-blitz-notification',
 			),
 		),
-		array (
-			array (
-				'param' => 'post_taxonomy',
-				'operator' => '==',
-				'value' => 'newsletter_category:instant-blitz-notification',
-			),
-			array (
-				'param' => 'post_type',
-				'operator' => '==',
-				'value' => 'newsletter',
-			),
-		),
 	),
 	'menu_order' => 0,
 	'position' => 'normal',

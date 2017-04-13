@@ -46,10 +46,12 @@ function alx_styles() {
 
 require_once( dirname( __FILE__ ) . '/inc/custom-post-types.php' );
 require_once( dirname( __FILE__ ) . '/inc/acf.php' ) ;
+require_once( dirname( __FILE__ ) . '/inc/acf-newsletters.php' ) ;
 require_once( dirname( __FILE__ ) . '/inc/blitz-requests.php' );
 require_once( dirname( __FILE__ ) . '/inc/email-notifications.php' );
 require_once( dirname( __FILE__ ) . '/inc/hosts-and-vols.php' );
 require_once( dirname( __FILE__ ) . '/inc/newsletters.php' );
+require_once( dirname( __FILE__ ) . '/inc/newsletters_v2.php' );
 require_once( dirname( __FILE__ ) . '/inc/fb_posts.php' );
 require_once( dirname( __FILE__ ) . '/inc/widgets.php' );
 require_once( dirname( __FILE__ ) . '/inc/shortcodes.php' ) ;
@@ -478,11 +480,12 @@ if (!current_user_can('edit_posts')) {
 function redirect_users_by_role() {
  
     $current_user   = wp_get_current_user();
-    $role_name      = $current_user->roles[0];
- 
-    if ( 'designer' === $role_name ) {
-        wp_redirect( 'http://www.permablitz.net/blitz-request/' );
-    } 
+    if ($current_user) {
+      $role_name      = $current_user->roles[0];
+      if ( 'designer' === $role_name ) {
+          wp_redirect( 'http://www.permablitz.net/blitz-request/' );
+      } 
+    }
  
 } // cm_redirect_users_by_role
 add_action( 'admin_init', 'redirect_users_by_role' );

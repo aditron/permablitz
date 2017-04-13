@@ -60,7 +60,7 @@ $labels = array(
     'menu_position' => 45,
     'show_in_nav_menus' => true,
     'show_in_admin_bar' => true,
-    'supports' => array( 'title', 'revisions', 'excerpt' ),
+    'supports' => array( 'title', 'revisions' ),
     'has_archive'   => false,
     'rewrite'           => array( 'slug' => 'newsletter-preview' )
   );
