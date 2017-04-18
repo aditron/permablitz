@@ -22,4 +22,15 @@ $headernav_classes = array(
           )
       );
     ?>
-  </nav><!--/#nav-header-->
+  </div>
+<div class="container">
+					<div class="container-inner">
+						<div class="toggle-search"><i class="fa fa-search"></i></div>
+						<div class="search-expand">
+							<div class="search-expand-inner">
+								<?php get_search_form(); ?>
+							</div>
+						</div>
+					</div><!--/.container-inner-->
+				</div><!--/.container-->
+</nav><!--/#nav-header-->

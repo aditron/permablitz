@@ -3,6 +3,29 @@
  *  Custom functions
 /* ------------------------------------------------------------------------- */
 	
+require_once( dirname( __FILE__ ) . '/inc/custom-post-types.php' );
+require_once( dirname( __FILE__ ) . '/inc/acf.php' ) ;
+require_once( dirname( __FILE__ ) . '/inc/blitz-requests.php' );
+require_once( dirname( __FILE__ ) . '/inc/email-notifications.php' );
+require_once( dirname( __FILE__ ) . '/inc/hosts-and-vols.php' );
+require_once( dirname( __FILE__ ) . '/inc/newsletters.php' );
+require_once( dirname( __FILE__ ) . '/inc/fb_posts.php' );
+require_once( dirname( __FILE__ ) . '/inc/widgets.php' );
+require_once( dirname( __FILE__ ) . '/inc/shortcodes.php' ) ;
+// require_once( dirname( __FILE__ ) . '/functions/widgets/alx-posts.php' );
+require_once( dirname( __FILE__ ) . '/functions/widgets/alx-tabs.php' );
+require_once( dirname( __FILE__ ) . '/functions/widgets/em-widgets.php' );
+require_once( dirname( __FILE__ ) . '/inc/guild_members.php' );
+require_once( dirname( __FILE__ ) . '/inc/menu-cache.php' );
+// require_once( dirname( __FILE__ ) . '/inc/widget-cache.php' );
+
+
+add_image_size( 'logo-standard', 320, 320 );
+add_image_size( 'email-thumb', 388, 288, 1 );
+add_image_size( 'email-hero', 590, 280, 1);
+add_image_size( 'fb-thumb', 240, 240, 1);
+
+
 function mapDescription($atts) {
 
 	global $wpdb;
@@ -28,38 +51,6 @@ wp_enqueue_style( 'wpb-google-fonts', '//fonts.googleapis.com/css?family=Source+
 }
 
 // add_action( 'wp_enqueue_scripts', 'wpb_add_google_fonts' );
-
-function alx_styles() {
-    wp_enqueue_style( 'style', get_stylesheet_uri() );
-    wp_enqueue_style( 'font-awesome', 'https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css' );
-  }   
-
-require_once( dirname( __FILE__ ) . '/inc/custom-post-types.php' );
-require_once( dirname( __FILE__ ) . '/inc/acf.php' ) ;
-require_once( dirname( __FILE__ ) . '/inc/acf-newsletters.php' ) ;
-require_once( dirname( __FILE__ ) . '/inc/blitz-requests.php' );
-require_once( dirname( __FILE__ ) . '/inc/email-notifications.php' );
-require_once( dirname( __FILE__ ) . '/inc/hosts-and-vols.php' );
-require_once( dirname( __FILE__ ) . '/inc/newsletters.php' );
-require_once( dirname( __FILE__ ) . '/inc/newsletters_v2.php' );
-require_once( dirname( __FILE__ ) . '/inc/fb_posts.php' );
-require_once( dirname( __FILE__ ) . '/inc/widgets.php' );
-require_once( dirname( __FILE__ ) . '/inc/shortcodes.php' ) ;
-// require_once( dirname( __FILE__ ) . '/functions/widgets/alx-posts.php' );
-require_once( dirname( __FILE__ ) . '/functions/widgets/alx-tabs.php' );
-require_once( dirname( __FILE__ ) . '/functions/widgets/em-widgets.php' );
-require_once( dirname( __FILE__ ) . '/inc/guild_members.php' );
-require_once( dirname( __FILE__ ) . '/inc/menu-cache.php' );
-// require_once( dirname( __FILE__ ) . '/inc/widget-cache.php' );
-
-
-add_image_size( 'logo-standard', 320, 320 );
-add_image_size( 'email-thumb', 388, 288, 1 );
-add_image_size( 'email-hero', 590, 280, 1);
-add_image_size( 'fb-thumb', 240, 240, 1);
-
-
-
 
 /*  Enqueue javascript
 /* ------------------------------------ */	
