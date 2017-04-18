@@ -6,7 +6,7 @@
 
 function wps_translation_mangler($translation, $text, $domain) {
         global $post;
-    if ($post->post_type == 'newsletter') {
+    if (isset($post->post_type) && $post->post_type == 'newsletter') {
         $translations = &get_translations_for_domain( $domain);
         if ( $text == 'Published on: <b>%1$s</b>') {
             return $translations->translate( 'Sent On: <b>%1$s</b>' );
@@ -24,7 +24,7 @@ add_filter('gettext', 'wps_translation_mangler', 10, 4);
 
 function hide_publish_button_editor() {
     global $post;
- if ($post->post_type == 'newsletter' && $post->post_status == 'publish') {
+ if (isset($post->post_type) && $post->post_type == 'newsletter' && $post->post_status == 'publish') {
         ?>
         <style>
             a.edit-timestamp,
