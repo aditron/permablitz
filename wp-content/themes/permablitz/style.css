@@ -414,3 +414,21 @@ margin-left: 10px;
 	.footer-widget-3 { display: none;}
 
 }
+
+/* move searchbox to menubar */
+.search-expand {
+    position: absolute;
+    top: -50px;
+    right: 50px;
+}
+@media only screen and (max-width: 719px) {
+  .search-expand {
+    left: 50px;
+    top: 0;
+  }
+}
+
+/* fit searchbox to menubar */
+.search-expand-inner {
+    padding: 6px;
+}

@@ -27,20 +27,10 @@ function wpb_add_google_fonts() {
 wp_enqueue_style( 'wpb-google-fonts', '//fonts.googleapis.com/css?family=Source+Sans+Pro:400,300italic,300,400italic,600&subset=latin,latin-ext', false ); 
 }
 
-add_action( 'wp_enqueue_scripts', 'wpb_add_google_fonts' );
-
-
-function remove_Alx_widgets() {
-	unregister_widget('AlxPosts');
-  unregister_widget('AlxTabs');
-}
-
-add_action( 'widgets_init', 'remove_Alx_widgets' );
+// add_action( 'wp_enqueue_scripts', 'wpb_add_google_fonts' );
 
 function alx_styles() {
     wp_enqueue_style( 'style', get_stylesheet_uri() );
-    // if ( ot_get_option('responsive') != 'off' ) { wp_enqueue_style( 'responsive', get_template_directory_uri().'/responsive.css' ); }
-    // if ( ot_get_option('custom') == 'on' ) { wp_enqueue_style( 'custom', get_template_directory_uri().'/custom.css' ); }
     wp_enqueue_style( 'font-awesome', 'https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css' );
   }   
 
@@ -60,7 +50,7 @@ require_once( dirname( __FILE__ ) . '/functions/widgets/alx-tabs.php' );
 require_once( dirname( __FILE__ ) . '/functions/widgets/em-widgets.php' );
 require_once( dirname( __FILE__ ) . '/inc/guild_members.php' );
 require_once( dirname( __FILE__ ) . '/inc/menu-cache.php' );
-require_once( dirname( __FILE__ ) . '/inc/widget-cache.php' );
+// require_once( dirname( __FILE__ ) . '/inc/widget-cache.php' );
 
 
 add_image_size( 'logo-standard', 320, 320 );
