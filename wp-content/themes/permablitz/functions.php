@@ -55,7 +55,7 @@ require_once( dirname( __FILE__ ) . '/inc/newsletters_v2.php' );
 require_once( dirname( __FILE__ ) . '/inc/fb_posts.php' );
 require_once( dirname( __FILE__ ) . '/inc/widgets.php' );
 require_once( dirname( __FILE__ ) . '/inc/shortcodes.php' ) ;
-require_once( dirname( __FILE__ ) . '/functions/widgets/alx-posts.php' );
+// require_once( dirname( __FILE__ ) . '/functions/widgets/alx-posts.php' );
 require_once( dirname( __FILE__ ) . '/functions/widgets/alx-tabs.php' );
 require_once( dirname( __FILE__ ) . '/functions/widgets/em-widgets.php' );
 require_once( dirname( __FILE__ ) . '/inc/guild_members.php' );
@@ -249,6 +249,7 @@ function otherEventNotifications($blitz_id=0, $args=array('limit' => 6, 'categor
     if ($limit) {
     $args['limit'] = $limit+1;      
     }
+
     $EM_Events = EM_Events::get($args);
     foreach ( $EM_Events as $EM_Event ) {
      $event_id = $EM_Event->event_id;

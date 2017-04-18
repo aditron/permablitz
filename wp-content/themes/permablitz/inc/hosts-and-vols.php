@@ -490,5 +490,3 @@ function pbz_handleSendToVols() {
 add_action( 'wp_ajax_pbz_handleSendToVols', 'pbz_handleSendToVols' );  
 add_action( 'wp_ajax_nopriv_pbz_handleSendToVols', 'pbz_handleSendToVols' );
 
-
-//<i class="fa fa-spinner fa-spin fa-fw"></i>

@@ -54,7 +54,7 @@ class Pbz_Widget extends WP_Widget {
 		
 		//legacy stuff
 		//add li tags to old widgets that have no forced li wrappers
-		if ( !preg_match('/^<li/i', trim($instance['format'])) ) $instance['format'] = '<li>'. $instance['format'] .'</li>';
+		//if ( !preg_match('/^<li/i', trim($instance['format'])) ) $instance['format'] = '<li>'. $instance['format'] .'</li>';
 		if (!preg_match('/^<li/i', trim($instance['no_events_text'])) ) $instance['no_events_text'] = '<li>'.$instance['no_events_text'].'</li>';
 		//orderby fix for previous versions with old orderby values
 		if( !array_key_exists($instance['orderby'], $this->em_orderby_options) ){
@@ -79,9 +79,23 @@ class Pbz_Widget extends WP_Widget {
 		if ($instance['class'] != '') { echo " class='" . $instance['class'] . "'"; }
 		echo ">";
 		if ( count($events) > 0 ){
-			foreach($events as $event){
-				$booked_out = get_field('booked_out', $event->post_id); 
-				echo $event->output( $instance['format'] );
+			foreach($events as $event){				
+				$booked_out = get_field('booked_out', $event->post_id);
+				if ($booked_out) {
+					echo '<li class="booked_out">';
+				} else{
+					echo '<li>';
+				}
+				echo '<div class="tab-item-thumbnail"><a href="#_EVENTURL">
+#_EVENTIMAGE{300,200}</a>
+</div>
+<div class="tab-item-inner group">
+<p class="tab-item-title">
+#_EVENTLINK
+</p>
+<p class="tab-item-date">#_EVENTDATES #_EVENTTIMES</p>					
+</div>';
+				echo '</li>';
 			}
 		}else{
 		    echo $instance['no_events_text'];

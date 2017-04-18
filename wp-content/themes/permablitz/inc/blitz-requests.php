@@ -275,7 +275,8 @@ function delete_view_field($post_id){
           $permablitz_news = do_shortcode('[permablitz_news edm="true" post_id='.$newsletter_id.']');
           $permablitz_news = styleForEDM($permablitz_news);
 
-          $fb = do_shortcode('[facebook_posts edm="true"]');
+          // $fb = do_shortcode('[facebook_posts edm="true"]');
+          $fb = do_shortcode('[facebook_posts edm="true" post_id='.$newsletter_id.']');
 
           $data = get_fields($newsletter_id);
           $date = $data['month'];
@@ -480,7 +481,8 @@ function getEmailsFromFormidableForm($form_id, $type='Yes') {
 
   global $wpdb;
   $email_id = $wpdb->get_var( "SELECT id FROM pbz_frm_fields WHERE form_id = $form_id AND type='email' " );
-  $attending_id = $wpdb->get_var( "SELECT id FROM pbz_frm_fields WHERE form_id = $form_id AND name='Attending' " );
+  $attending_id = $wpdb->get_var( 
+    "SELECT id FROM pbz_frm_fields WHERE form_id = $form_id AND name='Attending' " );
 // this gets you the list of IDs
 $query = "
 
