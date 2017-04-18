@@ -1,14 +1,5 @@
-<?php $sidebar = alx_sidebar_secondary(); ?>
-
-<?php
-	if (get_post_type() == 'blitz-request') {
-		$sidebar = 'sidebar-guild';
-	}
-?>
-
 <div class="sidebar s2 collapsed" data-position="<?php echo hu_get_sidebar_position( 's2' ); ?>" data-layout="<?php echo hu_get_layout_class(); ?>" data-sb-id="s2">
 
-	
 	<a class="sidebar-toggle" title="<?php _e('Expand Sidebar','hueman'); ?>"><i class="fa icon-sidebar-toggle"></i></a>
 
 	<div class="sidebar-content">

@@ -3,7 +3,7 @@ get_header(); ?>
 
 <section class="content">
 	
-	<?php get_template_part('inc/page-title'); ?>
+	<?php get_template_part('parts/page-title'); ?>
 	
 	<div class="pad group">
 		
@@ -18,7 +18,7 @@ get_header(); ?>
 				
 			</article>
 			
-			<?php if ( ot_get_option('page-comments') == 'on' ) { comments_template('/comments.php',true); } ?>
+			<?php if ( hu_is_checked('page-comments') == 'on' ) { comments_template('/comments.php',true); } ?>
 			
 		<?php endwhile; ?>
 		

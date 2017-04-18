@@ -17,7 +17,7 @@ get_header();
 
 <section class="content">
 	
-	<?php get_template_part('inc/page-title') . $vol_key; ?>
+	<?php get_template_part('parts/page-title'); ?>
 	
 	<div class="pad group">
 		
@@ -25,7 +25,7 @@ get_header();
 		
 			<article <?php post_class('group'); ?>>
 				
-				<?php // get_template_part('inc/page-image'); ?>
+				<?php // get_template_part('parts/page-image'); ?>
 				
 				<div class="entry themeform">
 					<?php the_content(); ?>

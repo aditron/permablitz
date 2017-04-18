@@ -606,13 +606,6 @@ function my_mce_before_init_insert_formats( $init_array ) {
   $style_formats = array(  
     // Each array child is a format with it's own settings
     array(  
-      'title' => 'Line-through',  
-      'block' => 'span',  
-      'classes' => 'line-through',
-      'wrapper' => true,
-      
-    ),  
-    array(  
       'title' => 'Grey block',  
       'block' => 'div',  
       'classes' => 'grey-block',

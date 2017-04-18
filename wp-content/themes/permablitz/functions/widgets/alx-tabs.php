@@ -178,7 +178,7 @@ GROUP BY v.postid
 ORDER BY pageviews DESC
 LIMIT 5");
 
-			$pop_output = '<ul id="tab-popular" class="alx-tab group ';
+			$pop_output = '<ul id="tab-popular-' . $this->number . '" class="alx-tab group ';
 			if($instance['popular_thumbs']) { $pop_output .= 'thumbs-enabled'; } 
 			$pop_output .= '">';
 				$df = get_option('date_format');
@@ -228,8 +228,8 @@ LIMIT 5");
 		<?php if($instance['comments_enable']) { // Recent comments enabled? ?>
 
 			<?php $comments = get_comments(array('number'=>$instance["comments_num"],'status'=>'approve','post_status'=>'publish')); ?>
-			
-			<ul id="tab-comments" class="alx-tab group <?php if($instance['comments_avatars']) { echo 'avatars-enabled'; } ?>">
+
+			<ul id="tab-comments-<?php echo $this -> number ?>" class="alx-tab group <?php if($instance['comments_avatars']) { echo 'avatars-enabled'; } ?>">
 				<?php foreach ($comments as $comment): ?>
 				<li>
 
@@ -256,7 +256,7 @@ LIMIT 5");
 
 		<?php if($instance['tags_enable']) { // Tags enabled? ?>
 
-			<ul id="tab-tags" class="alx-tab group">
+			<ul id="tab-tags-<?php echo $this -> number ?>" class="alx-tab group">
 				<li>
 					<?php 
 						$tag_cloud = get_transient("tag_cloud");
@@ -480,9 +480,4 @@ if ( ! function_exists( 'hu_register_widget_tabs' ) ) {
 	}
 
 }
-add_action( 'widgets_init', 'hu_register_widget_tabs' );
-
-function s157343_unregister_widgets() {
-     unregister_widget( 'AlxTabs' );
-}
-add_action( 'widgets_init', 's157343_unregister_widgets', 20 );
+add_action( 'widgets_init', 'hu_register_widget_tabs', 20 );
