@@ -7,7 +7,7 @@
 function wps_translation_mangler($translation, $text, $domain) {
         global $post;
     if (isset($post->post_type) && $post->post_type == 'newsletter') {
-        $translations = &get_translations_for_domain( $domain);
+        $translations = get_translations_for_domain( $domain);
         if ( $text == 'Published on: <b>%1$s</b>') {
             return $translations->translate( 'Sent On: <b>%1$s</b>' );
         }
@@ -24,7 +24,8 @@ add_filter('gettext', 'wps_translation_mangler', 10, 4);
 
 function hide_publish_button_editor() {
     global $post;
- if (isset($post->post_type) && $post->post_type == 'newsletter' && $post->post_status == 'publish') {
+    // print_g($post);
+ if ( (isset($post->post_type) && $post->post_type == 'newsletter')  && $post->post_status == 'publish') {
         ?>
         <style>
             a.edit-timestamp,
@@ -54,15 +55,11 @@ function newsletter_send_autoBlitz_notification($post_id) {
     $acf_recipient_list = 'field_58eeb29fb2bf9';
     $acf_recipient_each = 'field_58eeb2a079634';
 
-    print_r($_POST); 
-
     if (isset($_POST['acf'][$acf_blitz_id])) {
 
       $fields = $_POST['acf'];
       
       $blitz_id = $fields[$acf_blitz_id];
-      echo $blitz_id;
-      die();
 
       $send_type = $fields[$acf_send_type];
 
@@ -73,16 +70,16 @@ function newsletter_send_autoBlitz_notification($post_id) {
 
       $subject = 'Just announced: ' . $blitz_title ;
 
-      $msg = prepare_autoBlitz_notification( $blitz_id, $preview_text );
+      $msg = prepare_autoBlitz_notification( $blitz_id, $send_type, $preview_text );
   
-      newsletter_send($send_type, $subject, $acf_recipient_list, $acf_recipient_each);
+      newsletter_send($post_id, $send_type, $msg, $subject, $acf_recipient_list, $acf_recipient_each);
   
     }
 
 }
 add_action('save_post', 'newsletter_send_autoBlitz_notification', 10,3);
 
-function prepare_autoBlitz_notification( $blitz_id, $preview_text=null ) {
+function prepare_autoBlitz_notification( $blitz_id, $send_type, $preview_text=null ) {
 
     $blitz_image = wp_get_attachment_image_src( get_post_thumbnail_id( $blitz_id, 'email-hero' ) );
     $blitz_img = $blitz_image[0];
@@ -112,7 +109,7 @@ function prepare_autoBlitz_notification( $blitz_id, $preview_text=null ) {
     return $msg;
 }
 
-function newsletter_send($send_type='Test email', $subject, $acf_recipient_list=null, $acf_recipient_each=null) {
+function newsletter_send($post_id, $send_type='Test email', $msg, $subject, $acf_recipient_list=null, $acf_recipient_each=null) {
 
     $headers = "From: Permablitz Melbourne <permablitz@gmail.com>\r\n";
     $headers.= "Reply-To: Permablitz Melbourne <permablitz@gmail.com>\r\n";
@@ -156,9 +153,25 @@ function newsletter_send($send_type='Test email', $subject, $acf_recipient_list=
 
 function newsletter_store_response($post_id, $recipients, $sent) {
 
-    $time = ' on ' . date('M d, Y @ h:ia');
+    $time = ' on ' . the_time('M d, Y @ h:ia');
     $was_sent = $sent ? ' was sent successfully ' : ' failed ';
     $status = "Newsletter send to " . $recipients . $was_sent . $time;
     update_post_meta( $post_id, 'newsletter_status', $status );
 
+}
+
+add_filter( 'manage_newsletter_posts_columns', 'set_custom_edit_newsletter_columns' );
+
+function set_custom_edit_newsletter_columns( $columns ) {
+ 
+
+  $columns['sendtype'] = __( 'Send Type', 'my-text-domain' );
+  return $columns;
+}
+
+add_filter( 'post_date_column_time' , 'my_post_date_column_time' , 10 , 2 );
+
+function my_post_date_column_time( $h_time, $post ) {
+    $h_time = str_replace('Published', 'Sent', $h_time);
+    return $h_time;
 }

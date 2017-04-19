@@ -9,6 +9,7 @@ require_once( dirname( __FILE__ ) . '/inc/blitz-requests.php' );
 require_once( dirname( __FILE__ ) . '/inc/email-notifications.php' );
 require_once( dirname( __FILE__ ) . '/inc/hosts-and-vols.php' );
 require_once( dirname( __FILE__ ) . '/inc/newsletters.php' );
+require_once( dirname( __FILE__ ) . '/inc/newsletters_v2.php' );
 require_once( dirname( __FILE__ ) . '/inc/fb_posts.php' );
 require_once( dirname( __FILE__ ) . '/inc/widgets.php' );
 require_once( dirname( __FILE__ ) . '/inc/shortcodes.php' ) ;

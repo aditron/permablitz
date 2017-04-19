@@ -54,7 +54,7 @@ class Pbz_Widget extends WP_Widget {
 		
 		//legacy stuff
 		//add li tags to old widgets that have no forced li wrappers
-		//if ( !preg_match('/^<li/i', trim($instance['format'])) ) $instance['format'] = '<li>'. $instance['format'] .'</li>';
+		if ( !preg_match('/^<li/i', trim($instance['format'])) ) $instance['format'] = '<li>'. $instance['format'] .'</li>';
 		if (!preg_match('/^<li/i', trim($instance['no_events_text'])) ) $instance['no_events_text'] = '<li>'.$instance['no_events_text'].'</li>';
 		//orderby fix for previous versions with old orderby values
 		if( !array_key_exists($instance['orderby'], $this->em_orderby_options) ){
