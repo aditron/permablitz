@@ -32,8 +32,11 @@ class PbPages extends WP_Widget {
 		$description = $instance['description'];
 
 		if ( has_post_thumbnail($page_id) ):
+
+
+			$heading = $title ? '<h3>'.$title.'</h3>' : '';
 	?>
-	<h3><?php echo $title; ?></h3>
+	<?php echo $heading; ?>
 	<ul class="group thumbs-enabled">
 		<li>
 			

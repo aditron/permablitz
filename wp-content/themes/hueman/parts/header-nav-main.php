@@ -22,4 +22,5 @@ $headernav_classes = array(
           )
       );
     ?>
-  </nav><!--/#nav-header-->
+  </div>
+</nav><!--/#nav-header-->

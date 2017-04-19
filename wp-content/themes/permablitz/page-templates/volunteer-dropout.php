@@ -34,7 +34,7 @@ get_header();
 				
 			</article>
 			
-			<?php if ( ot_get_option('page-comments') == 'on' ) { comments_template('/comments.php',true); } ?>
+			<?php if ( hu_is_checked('page-comments') == 'on' ) { comments_template('/comments.php',true); } ?>
 			
 		<?php endwhile; ?>
 		

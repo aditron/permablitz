@@ -12,7 +12,6 @@ require_once( dirname( __FILE__ ) . '/inc/newsletters.php' );
 require_once( dirname( __FILE__ ) . '/inc/fb_posts.php' );
 require_once( dirname( __FILE__ ) . '/inc/widgets.php' );
 require_once( dirname( __FILE__ ) . '/inc/shortcodes.php' ) ;
-// require_once( dirname( __FILE__ ) . '/functions/widgets/alx-posts.php' );
 require_once( dirname( __FILE__ ) . '/functions/widgets/alx-tabs.php' );
 require_once( dirname( __FILE__ ) . '/functions/widgets/em-widgets.php' );
 require_once( dirname( __FILE__ ) . '/inc/guild_members.php' );
