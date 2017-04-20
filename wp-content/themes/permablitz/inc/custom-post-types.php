@@ -58,6 +58,7 @@ $labels = array(
     'description'   => 'Manages newsletters',
     'public'        => true,
     'menu_position' => 45,
+    'menu_icon'     => 'dashicons-media-text',
     'show_in_nav_menus' => true,
     'show_in_admin_bar' => true,
     'supports' => array( 'title', 'revisions' ),

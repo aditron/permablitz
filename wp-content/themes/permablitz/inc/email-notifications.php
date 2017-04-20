@@ -5,27 +5,27 @@
 */
 
 function pbz_edm_show_title($title, $cta=false) {
-  if (!$cta) {
-  $output = '<tr>
-                  <td align="center" style="padding:5px 0px 20px 0px; font-size:16px; line-height:18px; font-style:italic;">'.$title.'</td>
-                </tr>';
-              } else {
-
-              }
+  if (!$cta && trim($title)!='') {
+      $output = '<tr>
+      <td align="center" style="padding:5px 0px 20px 0px; font-size:16px; line-height:18px; font-style:italic;">'.$title.'</td>
+    </tr>';
+  } else {
+    $output = '';
+  }
   return $output;
 }
 
 function pbz_edm_blurbarea($content) {
 	
 	$content = styleForEDM( cleanMarkupForEDM( $content ) );
-    $content = str_replace('<p>', '', $content);
-    $content = str_replace('</p>', '<br /><br />', $content );
-    $content = str_replace('<br><br><br><br>', '', $content );
-	$content = preg_replace("/<br\W*?\/>/", "", $content);
-  	
-  	return '<tr>
-	          <td style="padding:20px 0px 20px 0px; font-size:16px; line-height:18px;">'.$content.'</td>
-	        </tr>';
+  $content = str_replace('<p>', '', $content);
+  $content = str_replace('</p>', '<br /><br />', $content );
+  $content = str_replace('<br><br><br><br>', '', $content );
+  $content = preg_replace("/<br\W*?\/>/", "", $content);
+
+  return '<tr>
+  <td style="padding:20px 0px 20px 0px; font-size:16px; line-height:18px;">'.$content.'</td>
+</tr>';
 }
 
 function getBlitzingCTA($blitz_url, $cta='Get Blitzing!', $position="outer") {
@@ -38,18 +38,18 @@ function getBlitzingCTA($blitz_url, $cta='Get Blitzing!', $position="outer") {
   }
 
   return '<tr>
-                  <td style="padding:'.$padding.';" align="center">
-                                            <table width="220" cellspacing="0" cellpadding="0" border="0" style="color:#46629e; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:8px;">
-                                                <tr>
-                                                    <td align="center" style="font-size:14px; line-height:16px; background-color:#45562f; color:#ffffff;">
-                                                        <a style="display:block; width:220px; color:#ffffff; text-decoration:none; padding:8px 0;" href="'.$blitz_url.'">
-                                                            '.$cta.'
-                                                        </a>
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                    </td>
-                </tr>';
+  <td style="padding:'.$padding.';" align="center">
+    <table width="220" cellspacing="0" cellpadding="0" border="0" style="color:#46629e; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:8px;">
+      <tr>
+        <td align="center" style="font-size:14px; line-height:16px; background-color:#45562f; color:#ffffff;">
+          <a style="display:block; width:220px; color:#ffffff; text-decoration:none; padding:8px 0;" href="'.$blitz_url.'">
+            '.$cta.'
+          </a>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>';
 }
 
 
