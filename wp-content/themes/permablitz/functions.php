@@ -5,6 +5,7 @@
 	
 require_once( dirname( __FILE__ ) . '/inc/custom-post-types.php' );
 require_once( dirname( __FILE__ ) . '/inc/acf.php' ) ;
+require_once( dirname( __FILE__ ) . '/inc/acf-newsletters.php' ) ;
 require_once( dirname( __FILE__ ) . '/inc/blitz-requests.php' );
 require_once( dirname( __FILE__ ) . '/inc/email-notifications.php' );
 require_once( dirname( __FILE__ ) . '/inc/hosts-and-vols.php' );

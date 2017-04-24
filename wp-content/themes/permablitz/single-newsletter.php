@@ -21,7 +21,8 @@
 			$send_type = get_field( 'send_type', $post->ID );
 			$subject = get_field( 'subject', $post->ID );
 			$preview_text = get_field( 'intro_text', $post->ID );
-			echo prepare_guild_notification( $post->ID );
+			$hero_image = get_field( 'hero_image', $post->ID );
+			echo prepare_guild_notification( $post->ID, $preview_text, $hero_image );
 		break;
 
 	}
