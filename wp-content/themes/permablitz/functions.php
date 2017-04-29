@@ -699,3 +699,35 @@ remove_action( 'admin_print_styles', 'print_emoji_styles' );
 if ( !current_user_can( 'unfiltered_html' ) ) {
     add_filter( 'w3tc_can_print_comment', '__return_false', 10, 1 );
 }
+
+function display_designer_taxonomy_terms($post_id){  
+    //get all terms assigned to this post
+    $member_terms = get_the_terms($post_id,'designer'); 
+    //if we have member terms assigned to this post
+    if($member_terms){
+        echo '<div class="member-terms-meta">';
+        echo '<p class="post-tags"><span> Designers: </span>';
+        //loop through each term 
+        foreach($member_terms as $term){
+            //collect term information and display it
+            $term_name = $term->name;
+            $term_link = get_term_link($term,'member'); 
+            echo '<a href="' . $term_link . '">'. $term_name . '</a>';
+        }
+        echo '</p></div>';
+    }
+}
+
+function pbz_before_after($content) {
+  global $post;
+    if(in_category('past-blitzes') || is_single()) {
+        
+        $aftercontent = display_designer_taxonomy_terms( $post->ID );
+        $fullcontent = $content . $aftercontent;
+    } else {
+        $fullcontent = $content;
+    }
+    
+    return $fullcontent;
+}
+add_filter('the_content', 'pbz_before_after');

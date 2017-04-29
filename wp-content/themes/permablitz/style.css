@@ -13,7 +13,33 @@
 
 /* Global */
 
-body { font-family: "Source Sans Pro", Arial, sans-serif; color: #333 }
+body { font-family: "Source Sans Pro", Arial, sans-serif; background: #eaeaea; font-size: 1rem; line-height: 1.5em; color: #333; font-weight: 300; }
+::selection { background: #3b8dbd;  }
+::-moz-selection { background: #3b8dbd; }
+
+a { color: #3b8dbd; text-decoration: none; outline: 0; }
+
+.post-hover:hover .post-title a { color: #3b8dbd; }
+.post-title a:hover { color: #3b8dbd; }
+.post-tags a:hover { background-color: #3b8dbd;  }
+.s1 .post-nav li a:hover i { color: #3b8dbd; }
+.content .post-nav li a:hover i { color: #3b8dbd; }
+a + span.hu-external:after { color: #3b8dbd; }
+.post-format .format-container {  border-left: 3px solid #3b8dbd; }
+#footer .widget_rss ul li a { color: #3b8dbd; }
+#footer .widget_calendar a { color: #3b8dbd; }
+#footer .alx-tabs-nav li.active a { border-bottom-color: #3b8dbd; }
+#footer .alx-posts li:hover .post-item-title a { color: #3b8dbd; }
+.comment-tabs li.active a { color: #3b8dbd; border-bottom-color: #3b8dbd; }
+.comment-awaiting-moderation { color: #3b8dbd; font-style: normal; }
+.commentlist li.comment-author-admin > .comment-body:after { background: #3b8dbd; }
+.child-menu a:hover { color: #3b8dbd; }
+.child-menu .current_page_item > a { color: #3b8dbd; }
+.wp-pagenavi a { color: #3b8dbd; }
+.wp-pagenavi span.current { border-bottom: 3px solid #3b8dbd; }
+
+.entry h1,.entry h2,.entry h3,.entry h4,.entry h5,.entry h6  { line-height: 1.1em; } 
+.entry h2.post-title { font-size: 1.3em }
 
 .s1 .alx-tab .tab-item-category a, .s1 .alx-posts .post-item-category a, .s1 .alx-tab li:hover .tab-item-title a, .s1 .alx-tab li:hover .tab-item-comment a, .s1 .alx-posts li:hover .post-item-title a, #footer .alx-tab .tab-item-category a, #footer .alx-posts .post-item-category a, #footer .alx-tab li:hover .tab-item-title a, #footer .alx-tab li:hover .tab-item-comment a, #footer .alx-posts li:hover .post-item-title a 
 {

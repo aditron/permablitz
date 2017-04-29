@@ -221,7 +221,8 @@ function my_post_date_column_time( $h_time, $post ) {
 
 function prepare_autoBlitz_notification( $blitz_id, $send_type, $preview_text=null ) {
 
-        $blitz_image = wp_get_attachment_image_src( get_post_thumbnail_id( $blitz_id, 'email-hero' ) );
+        $blitz_image = wp_get_attachment_image_src( get_post_thumbnail_id( $blitz_id), 'email-hero' );
+
         $blitz_img = $blitz_image[0];
         $blitz_url = get_permalink( $blitz_id );
 
