@@ -1,6 +1,0 @@
-[03-Oct-2016 20:38:35 UTC] PHP Fatal error:  Call to undefined function __() in /home/permabli/public_html/wp-content/plugins/formidable/pro/classes/controllers/FrmUpdatesController.php on line 28
-[03-Oct-2016 20:38:49 UTC] PHP Fatal error:  Call to undefined function __() in /home/permabli/public_html/wp-content/plugins/formidable/pro/classes/controllers/FrmUpdatesController.php on line 28
-[20-Nov-2016 06:20:38 UTC] PHP Fatal error:  Call to undefined function __() in /home/permabli/public_html/wp-content/plugins/formidable/pro/classes/controllers/FrmUpdatesController.php on line 28
-[20-Nov-2016 06:20:41 UTC] PHP Fatal error:  Call to undefined function __() in /home/permabli/public_html/wp-content/plugins/formidable/pro/classes/controllers/FrmUpdatesController.php on line 28
-[06-Dec-2016 02:25:50 UTC] PHP Fatal error:  Call to undefined function __() in /home/permabli/public_html/wp-content/plugins/formidable/pro/classes/controllers/FrmUpdatesController.php on line 28
-[06-Dec-2016 02:25:53 UTC] PHP Fatal error:  Call to undefined function __() in /home/permabli/public_html/wp-content/plugins/formidable/pro/classes/controllers/FrmUpdatesController.php on line 28

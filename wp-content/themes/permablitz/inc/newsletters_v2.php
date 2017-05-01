@@ -152,6 +152,34 @@ function my_post_date_column_time( $h_time, $post ) {
 
         }
 
+        // BLITZ HOST INFO handling
+
+        $acf_host_subject_id = 'field_5906da0aa6af3';
+
+        if (isset($_POST['acf'][$acf_host_subject_id])) {
+
+            // $acf_send_type = 'field_58eefdb0b14fb'; // totally redundant here
+            $acf_recipient_list = 'field_5906d9a73c699';
+            $acf_recipient_each = 'field_5906d9a7ac894';
+            $acf_intro_text = 'field_5906db46b4f9d';
+            $acf_preview_text = 'field_5906d9a73c0db';
+            $acf_send_type = 'field_5906dd4de5bed';
+            $acf_blitz_id = 'field_5906d9a73bd1e';
+
+            $fields = $_POST['acf'];
+
+            $subject = cleanMarkupForEDM( $fields[$acf_host_subject_id] );
+            $blitz_id = $fields[$acf_blitz_id];
+            $send_type = $fields[$acf_send_type]; 
+
+            $preview_text = $fields[$acf_preview_text]; // preview text
+            $intro_text = replacePwithBR( styleForEDM( cleanMarkupForEDM( wpautop( $fields[$acf_preview_text] ) ) ) );
+
+            $msg =  prepare_hostBlitzInfo_notification( $blitz_id, $send_type, $preview_text, $intro_text );
+            newsletter_send($blitz_id, $send_type, $msg, $subject, $acf_recipient_list, $acf_recipient_each);
+
+        }
+
 
 
     }
@@ -272,4 +300,31 @@ function prepare_guild_notification($post_id, $intro_text, $guild_img_id) {
 
   return $msg;
 
+}
+
+function prepare_hostBlitzInfo_notification( $blitz_id, $send_type, $preview_text=null, $intro_text=null ) {
+    
+    $blitz_image = wp_get_attachment_image_src( get_post_thumbnail_id( $blitz_id ), 'email-hero' );
+
+    $blitz_img = $blitz_image[0];
+    $blitz_url = get_permalink( $blitz_id );
+
+    $blitz_blurb = cleanMarkupForEDM( $intro_text );
+
+    $blitz_title = cleanMarkupForEDM( get_the_title( $blitz_id ) );
+    $blitz_title = str_replace('&#8211;', '-', $blitz_title);
+
+    $promo = otherEventNotifications($blitz_id, $args=array('limit' => 4, 'category' => 58), true, 'Other Upcoming Events'  );
+
+    $msg = file_get_contents( get_stylesheet_directory_uri() . '/email/blitz_notification.html' );
+    $msg = str_replace( '{{BLITZ_PAGE_TITLE}}', $blitz_title, $msg );
+    $msg = str_replace( '{{BLITZ_TITLE}}', '', $msg );
+    $msg = str_replace( '{{BLITZ_IMG}}', $blitz_img, $msg );
+    $msg = str_replace( '{{BLITZ_BLURB}}', pbz_edm_blurbarea($blitz_blurb), $msg );
+    $msg = str_replace( '{{BLITZ_URL}}', $blitz_url, $msg );
+    $msg = str_replace( '{{OTHER_EVENTS}}', $promo, $msg );
+    $msg = str_replace( '{{GET_BLITZING}}', '', $msg);
+    $msg = str_replace( '{{SUPER_SCRIPT}}', $preview_text, $msg);
+
+    return $msg;
 }
