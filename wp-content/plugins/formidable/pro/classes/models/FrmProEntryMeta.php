@@ -7,11 +7,13 @@ class FrmProEntryMeta{
             return $values;
         }
 
-        if ( $field->type == 'date' ) {
-            $values['meta_value'] = FrmProAppHelper::maybe_convert_to_db_date($values['meta_value'], 'Y-m-d');
-        } else if ( $field->type == 'number' && ! is_numeric($values['meta_value']) ) {
-            $values['meta_value'] = (float) $values['meta_value'];
-        }
+		if ( $field->type == 'date' ) {
+			$values['meta_value'] = FrmProAppHelper::maybe_convert_to_db_date($values['meta_value'], 'Y-m-d');
+		} else if ( $field->type == 'number' && ! is_numeric($values['meta_value']) ) {
+			$values['meta_value'] = (float) $values['meta_value'];
+		} elseif ( $field->type == 'time' ) {
+			$values['meta_value'] = FrmProAppHelper::format_time( $values['meta_value'], 'H:i' );
+		}
 
         return $values;
     }
@@ -87,16 +89,14 @@ class FrmProEntryMeta{
      * @return array|string $meta_value
      *
      */
-	public static function prepare_data_before_db( $meta_value, $field_id, $entry_id ) {
+	public static function prepare_data_before_db( $meta_value, $field_id, $entry_id, $atts ) {
 		// If confirmation field or 0 index, exit now
-		if ( ! is_numeric( $field_id ) || $field_id === 0 ) {
+		if ( ! $atts['field'] ) {
 			return $meta_value;
 		}
 
-		$field = FrmField::getOne($field_id);
-
-		if ( $field->type == 'tag' ) {
-			self::create_new_tags( $field, $entry_id, $meta_value );
+		if ( $atts['field']->type == 'tag' ) {
+			self::create_new_tags( $atts['field'], $entry_id, $meta_value );
 		}
 
 		return $meta_value;
@@ -154,7 +154,8 @@ class FrmProEntryMeta{
             //add user id to post variables to be saved with entry
             $_POST['frm_user_id'] = $value;
         } else if ( $field->type == 'time' && is_array($value) ) {
-            $value = $value['H'] .':'. $value['m'] . ( isset($value['A']) ? ' '. $value['A'] : '' );
+			FrmProTimeField::time_array_to_string( $value );
+
             FrmEntriesHelper::set_posted_value($field, $value, $args);
         }
 
@@ -178,6 +179,7 @@ class FrmProEntryMeta{
         }
 
         self::validate_no_input_fields($errors, $field);
+		FrmProTimeField::validate_time_field( $errors, $field, $value );
 
         if ( empty($args['parent_field_id']) && ! isset($_POST['item_meta'][$field->id]) ) {
             return $errors;
@@ -393,18 +395,12 @@ class FrmProEntryMeta{
             return;
         }
         
-        $entry_id = ( $_POST && isset($_POST['id']) ) ? $_POST['id'] : false;
-
-        // get the child entry id for embedded or repeated fields
-        if ( isset($field->temp_id) ) {
-            $temp_id_parts = explode('-i', $field->temp_id);
-            if ( isset($temp_id_parts[1]) ) {
-                $entry_id = $temp_id_parts[1];
-            }
-        }
+        $entry_id = self::get_validated_entry_id( $field );
 
         if ( $field->type == 'time' ) {
-            //TODO: add server-side validation for unique date-time
+            if ( FrmProTimeField::is_datetime_used( $field, $value, $entry_id ) ) {
+            	$errors[ 'field' . $field->temp_id ] = FrmFieldsHelper::get_error_msg( $field, 'unique_msg' );
+            }
         } else if ( $field->type == 'date' ) {
             $value = FrmProAppHelper::maybe_convert_to_db_date($value, 'Y-m-d');
 
@@ -415,6 +411,28 @@ class FrmProEntryMeta{
             $errors['field'. $field->temp_id] = FrmFieldsHelper::get_error_msg($field, 'unique_msg');
         }
     }
+
+	public static function get_validated_entry_id( $field ) {
+		$entry_id = ( $_POST && isset($_POST['id']) ) ? absint( $_POST['id'] ) : 0;
+
+		// get the child entry id for embedded or repeated fields
+		if ( isset( $field->temp_id ) ) {
+			$temp_id_parts = explode( '-i', $field->temp_id );
+			if ( isset( $temp_id_parts[1] ) ) {
+				$entry_id = $temp_id_parts[1];
+			}
+		}
+
+		return $entry_id;
+	}
+
+	public static function add_field_to_query( $value, &$query ) {
+		if ( is_numeric( $value ) ) {
+			$query['it.field_id'] = $value;
+		} else {
+			$query['fi.field_key'] = $value;
+		}
+	}
 
     public static function validate_confirmation_field(&$errors, $field, $value, $args) {
 		//Make sure confirmation field matches original field
@@ -473,23 +491,29 @@ class FrmProEntryMeta{
             return;
         }
 
-        if ( ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) ) {
+        if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) {
             $frmpro_settings = new FrmProSettings();
-            $formated_date = FrmProAppHelper::convert_date($value, $frmpro_settings->date_format, 'Y-m-d');
+            $formated_date = FrmProAppHelper::convert_date( $value, $frmpro_settings->date_format, 'Y-m-d' );
 
             //check format before converting
-            if ( $value != date($frmpro_settings->date_format, strtotime($formated_date)) ) {
-                $errors['field'. $field->temp_id] = FrmFieldsHelper::get_error_msg($field, 'invalid');
-            }
+			if ( $value != date( $frmpro_settings->date_format, strtotime( $formated_date ) ) ) {
+				$allow_it = apply_filters( 'frm_allow_date_mismatch', false, array(
+					'date' => $value, 'formatted_date' => $formated_date,
+				) );
+				if ( ! $allow_it ) {
+					$errors[ 'field' . $field->temp_id ] = FrmFieldsHelper::get_error_msg( $field, 'invalid' );
+				}
+			}
 
             $value = $formated_date;
-            unset($formated_date);
-        }
-        $date = explode('-', $value);
+			unset( $formated_date );
+		}
 
-        if ( count($date) != 3 || ! checkdate( (int) $date[1], (int) $date[2], (int) $date[0]) ) {
-            $errors['field'. $field->temp_id] = FrmFieldsHelper::get_error_msg($field, 'invalid');
-        }
+		$date = explode( '-', $value );
+
+		if ( count( $date ) != 3 || ! checkdate( (int) $date[1], (int) $date[2], (int) $date[0] ) ) {
+			$errors[ 'field' . $field->temp_id ] = FrmFieldsHelper::get_error_msg( $field, 'invalid' );
+		}
     }
 
 	public static function skip_required_validation( $field ) {
@@ -737,8 +761,16 @@ class FrmProEntryMeta{
 	private static function get_operator_for_query( $args ) {
 		$operator = '';
 		if ( isset( $args['comparison_type'] ) ) {
-			if ( 'like' == $args['comparison_type'] ) {
+			if ( 'like' === $args['comparison_type'] ) {
 				$operator = ' LIKE';
+			} elseif ( '>' === $args['comparison_type'] ){
+				$operator = ' >-';
+			} elseif ( '<' === $args['comparison_type'] ) {
+				$operator = ' <-';
+			} elseif ( '>=' === $args['comparison_type'] ) {
+				$operator = '>';
+			} elseif ( '<=' === $args['comparison_type'] ) {
+				$operator = '<';
 			}
 		}
 
@@ -893,4 +925,9 @@ class FrmProEntryMeta{
     public static function get_file_name( $field_id, &$file_name, &$parent_field, &$key_pointer, &$repeating ) {
         _deprecated_function( __FUNCTION__, '2.02' );
     }
+
+	public static function get_disallowed_times( $values, &$remove ) {
+		_deprecated_function( __FUNCTION__, '2.03.02', 'FrmProTimeField::get_disallowed_times' );
+		FrmProTimeField::get_disallowed_times( $values, $remove );
+	}
 }

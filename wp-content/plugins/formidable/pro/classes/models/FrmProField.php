@@ -89,15 +89,7 @@ class FrmProField {
             unset($i, $f);
         }
 
-        if ( $field->type == 'scale' ) {
-            if ( (int) $field_options['maxnum'] >= 99 ) {
-                $field_options['maxnum'] = 10;
-            }
-
-            $options = range($field_options['minnum'], $field_options['maxnum']);
-
-            FrmField::update($field->id, array( 'options' => serialize($options)));
-        } else if ( $field->type == 'hidden' && isset($field_options['required']) && $field_options['required'] ) {
+		if ( $field->type == 'hidden' && isset($field_options['required']) && $field_options['required'] ) {
             $field_options['required'] = false;
         } else if ( $field->type == 'file' ) {
         	self::format_mime_types( $field_options );

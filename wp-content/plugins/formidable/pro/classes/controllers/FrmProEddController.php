@@ -55,6 +55,7 @@ class FrmProEddController extends FrmAddon {
         delete_option( $this->pro_auth_store );
         delete_site_option( $this->pro_cred_store );
         delete_site_option( $this->pro_auth_store );
+		parent::clear_license();
 	}
 
 	public function set_active( $is_active ) {
@@ -71,6 +72,10 @@ class FrmProEddController extends FrmAddon {
         } else {
             update_option( $this->pro_auth_store, $is_active );
         }
+
+		// update style sheet to make sure pro css is included
+		$frm_style = new FrmStyle();
+		$frm_style->update( 'default' );
 	}
 
 	private function get_pro_cred_form_vals() {
@@ -116,7 +121,7 @@ class FrmProEddController extends FrmAddon {
     <?php $this->display_form();
 
     if ( ! $frm_vars['pro_is_authorized'] ) { ?>
-    <p>Already signed up? <a href="https://formidablepro.com/account/?action=licenses" target="_blank"><?php _e( 'Click here', 'formidable' ) ?></a> to get your license number.</p>
+    <p>Already signed up? <a href="https://formidableforms.com/account/licenses/" target="_blank"><?php _e( 'Click here', 'formidable' ) ?></a> to get your license number.</p>
     <?php } ?>
 </div>
 
@@ -129,7 +134,7 @@ class FrmProEddController extends FrmAddon {
 </div>
 <div class="clear"></div>
 </div>
-<p class="frm_aff_link"><a href="https://formidablepro.com/account/licenses" target="_blank"><?php _e( 'Account', 'formidable' ) ?></a></p>
+<p class="frm_aff_link"><a href="https://formidableforms.com/account/licenses/" target="_blank"><?php _e( 'Account', 'formidable' ) ?></a></p>
 </div>
 <p class="frm_pro_license_msg"></p>
 <div class="clear"></div>

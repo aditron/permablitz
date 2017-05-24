@@ -1,5 +1,5 @@
 <div id="form_show_entry_page" class="wrap">
-    <h2><?php _e( 'View Entry', 'formidable' ) ?>
+    <h2 class="frm_no_print"><?php _e( 'View Entry', 'formidable' ) ?>
         <?php do_action('frm_entry_inside_h2', $entry->form_id); ?>
     </h2>
 
@@ -39,7 +39,8 @@
                                 'show_filename' => true, 'show_icon' => true, 'entry_id' => $entry->id,
                                 'embedded_field_id' => $embedded_field_id,
                             );
-                            echo $display_value = FrmEntriesHelper::prepare_display_value($entry, $field, $atts);
+							$display_value = FrmEntriesHelper::prepare_display_value( $entry, $field, $atts );
+							echo $display_value;
 
                             if ( is_email($display_value) && ! in_array($display_value, $to_emails) ) {
                                 $to_emails[] = $display_value;

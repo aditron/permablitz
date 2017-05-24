@@ -134,9 +134,11 @@ class FrmEntry {
 		$new_values['item_key'] = FrmAppHelper::get_unique_key( '', $wpdb->prefix . 'frm_items', 'item_key' );
         $new_values['name'] = $values->name;
         $new_values['is_draft'] = $values->is_draft;
-        $new_values['user_id'] = $new_values['updated_by'] = (int) $values->user_id;
+		$new_values['user_id'] = (int) $values->user_id;
+		$new_values['updated_by'] = (int) $values->user_id;
         $new_values['form_id'] = $values->form_id ? (int) $values->form_id: null;
-        $new_values['created_at'] = $new_values['updated_at'] = current_time('mysql', 1);
+		$new_values['created_at'] = current_time( 'mysql', 1 );
+		$new_values['updated_at'] = $new_values['created_at'];
 
 		$query_results = $wpdb->insert( $wpdb->prefix . 'frm_items', $new_values );
         if ( ! $query_results ) {
@@ -197,7 +199,7 @@ class FrmEntry {
 		return $query_results;
 	}
 
-	public static function &destroy( $id ) {
+	public static function destroy( $id ) {
         global $wpdb;
         $id = (int) $id;
 
@@ -217,7 +219,7 @@ class FrmEntry {
         return $result;
     }
 
-	public static function &update_form( $id, $value, $form_id ) {
+	public static function update_form( $id, $value, $form_id ) {
         global $wpdb;
         $form_id = isset($value) ? $form_id : null;
 		$result = $wpdb->update( $wpdb->prefix . 'frm_items', array( 'form_id' => $form_id ), array( 'id' => $id ) );
@@ -325,7 +327,7 @@ class FrmEntry {
     /**
      * @param string $id
      */
-	public static function &exists( $id ) {
+	public static function exists( $id ) {
         global $wpdb;
 
         if ( FrmAppHelper::check_cache( $id, 'frm_entry' ) ) {
@@ -569,7 +571,7 @@ class FrmEntry {
 	* @return int
 	*/
 	private static function get_is_draft_value( $values ) {
-		return ( ( isset( $values['frm_saving_draft'] ) && $values['frm_saving_draft'] == 1 ) ||  ( isset( $values['is_draft'] ) && $values['is_draft'] == 1 ) ) ? 1 : 0;
+		return ( ( isset( $values['frm_saving_draft'] ) && $values['frm_saving_draft'] == 1 ) || ( isset( $values['is_draft'] ) && $values['is_draft'] == 1 ) ) ? 1 : 0;
 	}
 
 	/**

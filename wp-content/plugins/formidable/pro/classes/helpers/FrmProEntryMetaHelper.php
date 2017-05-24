@@ -2,12 +2,16 @@
 
 class FrmProEntryMetaHelper{
 
-    public static function email_value($value, $meta, $entry) {
-        if ( $entry->id != $meta->item_id ) {
-            $entry = FrmEntry::getOne($meta->item_id);
-        }
+	public static function email_value( $value, $meta, $entry, $atts = array() ) {
+		if ( $entry->id != $meta->item_id ) {
+			$entry = FrmEntry::getOne($meta->item_id);
+		}
 
-        $field = FrmField::getOne($meta->field_id);
+		if ( isset( $atts['field'] ) ) {
+			$field = $atts['field'];
+		} else {
+			$field = FrmField::getOne( $meta->field_id );
+		}
         if ( ! $field ) {
             return $value;
         }
@@ -33,10 +37,14 @@ class FrmProEntryMetaHelper{
                 }
                 break;
             case 'file':
-                $value = FrmProFieldsHelper::get_file_name($value);
+				$sep = isset( $atts['format'] ) && $atts['format'] === 'array' ? ',' : 'default';
+				$value = FrmProFieldsHelper::get_file_name( $value, true, $sep );
                 break;
             case 'date':
                 $value = FrmProFieldsHelper::get_date($value);
+				break;
+			case 'time':
+				$value = FrmProFieldsHelper::get_time_display_value( $value, array(), $field );
         }
 
 		if ( is_array( $value ) ) {
@@ -68,10 +76,12 @@ class FrmProEntryMetaHelper{
         $values = array();
         foreach ( $entries as $entry ) {
             $sub_val = self::get_post_or_meta_value($entry, $field, $atts);
-            if ( $sub_val != '' ) {
-                $values[] = $sub_val;
-            }
+			$include_blank = ( isset( $atts['include_blank'] ) && $atts['include_blank'] );
+			if ( $sub_val != '' || $include_blank ) {
+				$values[ $entry->id ] = $sub_val;
+			}
         }
+
         return $values;
     }
 
@@ -325,7 +335,7 @@ class FrmProEntryMetaHelper{
         $query[] = $sub_query;
 
         if ( $this_field && isset($this_field->field_options['restrict']) && $this_field->field_options['restrict'] ) {
-            $query['e.user_id'] = get_current_user_id();
+			$query['e.user_id'] = self::get_entry_id_for_dynamic_opts( array( 'field' => $this_field ) );
         }
 
         // the ids of all the entries that have been selected in the linked form
@@ -343,6 +353,35 @@ class FrmProEntryMetaHelper{
 			}
         }
     }
+
+	private static function get_entry_id_for_dynamic_opts( $atts ) {
+		$user_id = get_current_user_id();
+		$entry_id = 0;
+		if ( FrmAppHelper::is_admin() ) {
+			$entry_id = FrmAppHelper::get_param( 'id', 0, 'get', 'absint' );
+		} elseif ( FrmAppHelper::doing_ajax() ) {
+			$entry_id = FrmAppHelper::get_param( 'editing_entry', 0, 'get', 'absint' );
+		}
+		$atts['entry_id'] = $entry_id;
+		return self::user_for_dynamic_opts( $user_id, $atts );
+	}
+
+	public static function user_for_dynamic_opts( $user_id, $atts ) {
+		$entry_user = (array) $user_id;
+		if ( $atts['entry_id'] ) {
+			$entry_owner = FrmDb::get_var( 'frm_items', array( 'id' => $atts['entry_id'] ), 'user_id' );
+			if ( $entry_owner ) {
+				$entry_user[] = $entry_owner;
+			}
+		}
+
+		/**
+		 * Set the user id(s) for the limited dynamic field options
+		 * @since 2.2.8
+		 * @return array|int
+		 */
+		return apply_filters( 'frm_dynamic_field_user', $entry_user, $atts );
+	}
 
     public static function &value_exists($field_id, $value, $entry_id = false) {
         if ( is_object($field_id) ) {
@@ -438,13 +477,7 @@ class FrmProEntryMetaHelper{
 	 * @return array
 	 */
 	public static function get_pro_field_shortcodes_for_default_email( $field_shortcodes, $f ) {
-		if ( $f->type == 'data' && $f->field_options['data_type'] == 'data' ) {
-			if ( ! empty( $f->field_options['hide_field'] ) && ! empty( $f->field_options['form_select'] ) ) {
-				$field_id_string = reset( $f->field_options[ 'hide_field' ] ) . ' show=' . $f->field_options[ 'form_select' ];
-				$field_shortcodes['val'] = '[' . $field_id_string . ']';
-			}
-		}
-
-		return $field_shortcodes;
+		_deprecated_function( __FUNCTION__, '2.03', 'FrmProEntryFormat::default_email_shortcodes' );
+		return FrmProEntryFormat::default_email_shortcodes( $field_shortcodes, $f );
 	}
 }

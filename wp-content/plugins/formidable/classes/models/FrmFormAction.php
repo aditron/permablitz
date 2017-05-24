@@ -361,6 +361,8 @@ class FrmFormAction {
             return array();
         }
 
+		$limit = apply_filters( 'frm_form_action_limit', $limit, compact( 'type', 'form_id' ) );
+
         if ( 'all' != $type ) {
             return $action_controls->get_all( $form_id, $limit );
         }
@@ -589,7 +591,7 @@ class FrmFormAction {
 
             // update form options
 			$wpdb->update( $wpdb->prefix . 'frm_forms', array( 'options' => $form->options ), array( 'id' => $form->id ) );
-            wp_cache_delete( $form->id, 'frm_form');
+	        FrmForm::clear_form_cache();
         }
 
         return $post_id;

@@ -43,7 +43,10 @@
 
 <tr>
     <td colspan="2">
-        <label for="editable"><input type="checkbox" name="editable" id="editable" value="1"<?php echo ($values['editable']) ? ' checked="checked"' : ''; ?> /> <?php _e( 'Allow front-end editing of entries', 'formidable' ) ?></label>
+		<label for="editable">
+			<input type="checkbox" name="editable" id="editable" value="1" <?php checked( $values['editable'], 1 ) ?> />
+			<?php _e( 'Allow front-end editing of entries', 'formidable' ) ?>
+		</label>
     </td>
 </tr>
 
@@ -65,12 +68,20 @@ if ( isset( $values['open_editable'] ) && empty( $values['open_editable'] ) ) {
 }
 ?>
 <tr class="hide_editable frm_short_tr">
-    <td><p class="frm_indent_opt"><label for="open_editable_role"><?php _e( 'Role required to edit other users\' entries:', 'formidable' ) ?></label></p></td>
+	<td>
+		<p class="frm_indent_opt">
+			<label for="open_editable_role">
+				<?php _e( 'Role required to edit other users\' entries:', 'formidable' ) ?>
+			</label>
+		</p>
+	</td>
     <td>
         <select name="options[open_editable_role]" id="open_editable_role">
             <option value="-1"></option>
-            <option value="" <?php selected($values['open_editable_role'], ''); ?>><?php _e( 'Logged-in Users', 'formidable' ) ?></option>
-            <?php FrmAppHelper::roles_options($values['open_editable_role']); ?>
+			<option value="" <?php selected( $values['open_editable_role'], '' ); ?>>
+				<?php _e( 'Logged-in Users', 'formidable' ) ?>
+			</option>
+			<?php FrmAppHelper::roles_options( $values['open_editable_role'] ); ?>
         </select>
     </td>
 </tr>
@@ -113,7 +124,8 @@ if ( isset( $values['open_editable'] ) && empty( $values['open_editable'] ) ) {
 			</label>
 	    </td>
 	</tr>
-<?php } else { ?>
+<?php } else {
+	?>
 	<input type="hidden" value="0" name="options[protect_files]" />
 <?php } ?>
 
@@ -127,4 +139,5 @@ if ( is_multisite() ) {
         <input type="hidden" name="options[copy]" id="copy" value="1" />
     <?php
     }
-}
+} ?>
+</table>

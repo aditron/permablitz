@@ -79,6 +79,8 @@ class FrmProPost {
 		$dyn_content = '';
 		self::post_value_overrides( $post, $new_post, $editing, $form, $entry, $dyn_content );
 
+		$post = apply_filters( 'frm_before_create_post', $post, array( 'form' => $form, 'entry' => $entry ) );
+
 		$post_ID = wp_insert_post( $post );
 
 		if ( is_wp_error( $post_ID ) || empty($post_ID) ) {
@@ -468,7 +470,7 @@ class FrmProPost {
 		$attachments = get_posts( $args );
 		foreach ( $attachments as $attachment ) {
 			$wpdb->update( $wpdb->posts, array( 'post_parent' => null ), array( 'ID' => $attachment->ID ) );
-			update_post_meta( $media_id, '_frm_file', 1 );
+			update_post_meta( $attachment->ID, '_frm_file', 1 );
 		}
 	}
 
@@ -522,31 +524,67 @@ class FrmProPost {
 	}
 
 	/**
-	 * delete entry meta so it won't be duplicated
+	 * Delete entry meta so it won't be duplicated
+	 *
+	 * @param object $action
+	 * @param object $entry
 	 */
 	private static function delete_duplicated_meta( $action, $entry ) {
 		global $wpdb;
 
-		$field_ids = array();
-		foreach ( $action->post_content as $name => $value ) {
-			// Don't try to delete meta for the display ID since this is never a field ID
-			if ( $name == 'display_id' ) {
-				continue;
-			}
+		$filtered_settings = self::get_post_field_settings( $action->post_content );
 
-			if ( is_numeric($value) ) {
-				$field_ids[] = $value;
-			} else if ( is_array( $value ) && isset( $value['field_id'] ) && is_numeric( $value['field_id'] ) ) {
-				$field_ids[] = $value['field_id'];
-			}
-			unset($name, $value);
-		}
+		$field_ids = array();
+		self::get_post_field_ids_from_settings( $filtered_settings, $field_ids );
 
 		if ( ! empty($field_ids) ) {
 			$where = array( 'item_id' => $entry->id, 'field_id' => $field_ids );
 			FrmDb::get_where_clause_and_values( $where );
 
 			$wpdb->query( $wpdb->prepare( 'DELETE FROM ' . $wpdb->prefix . 'frm_item_metas' . $where['where'], $where['values'] ) );
+		}
+	}
+
+	/**
+	 * Get the post field settings from a post action
+	 *
+	 * @since 2.2.11
+	 *
+	 * @param array $settings
+	 * @return array $filtered
+	 */
+	private static function get_post_field_settings( $settings ) {
+		$filtered = $settings;
+		foreach ( $settings as $name => $value ) {
+			if ( strpos( $name, 'post' ) !== 0 ) {
+				unset( $filtered[ $name ] );
+			}
+		}
+
+		return $filtered;
+	}
+
+	/**
+	 * Get the field IDs from the post field settings
+	 *
+	 * @since 2.2.11
+	 *
+	 * @param array $settings
+	 * @param array $field_ids
+	 */
+	private static function get_post_field_ids_from_settings( $settings, &$field_ids ) {
+		foreach ( $settings as $name => $value ) {
+
+			if ( is_numeric( $value ) ) {
+				$field_ids[] = $value;
+			} else if ( is_array( $value ) ) {
+				if ( isset( $value['field_id'] ) && is_numeric( $value['field_id'] ) ) {
+					$field_ids[] = $value['field_id'];
+				} else {
+					self::get_post_field_ids_from_settings( $value, $field_ids );
+				}
+			}
+			unset( $name, $value );
 		}
 	}
 
@@ -686,10 +724,6 @@ class FrmProPost {
 			$selected = reset( $field['value'] );
 		} else {
 			$selected = $field['value'];
-		}
-
-		if ( $args['location'] == 'field_logic' ) {
-			$args['name'] .= '[]';
 		}
 
 		$tax_atts = array(

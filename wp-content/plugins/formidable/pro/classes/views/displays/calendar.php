@@ -22,9 +22,11 @@ for ( $i = $week_begins; $i < ( $maxday+$startday ); $i++ ) {
 	}
 
 ?>
-<td<?php echo ( ! empty( $day_class ) ) ? ' class="' . esc_attr( $day_class ) . '"' : ''; ?>><div class="frmcal_date"><?php
-echo isset($day_names[$i]) ? $day_names[$i] .' ' : '';
-unset($day_class);
+<td<?php echo ( ! empty( $day_class ) ) ? ' class="' . esc_attr( $day_class ) . '"' : ''; ?>><div class="frmcal_date">
+		<div class="frmcal_day_name"><?php
+			echo isset( $day_names[$i] ) ? $day_names[$i] .' ' : '';
+		?></div><?php
+	unset($day_class);
 
 	if ( $i >= $startday ) {
         ?><div class="frmcal_num"><?php echo esc_html( $day ) ?></div></div> <div class="frmcal-content">
@@ -35,7 +37,7 @@ unset($day_class);
                 $current_entry_date = $year . '-' . $month . '-' . ( $day < 10 ? '0' . $day : $day );
 
                 if ( isset($used_entries[$entry->id]) ) {
-                    $this_content = FrmProFieldsHelper::replace_calendar_date_shortcode($used_entries[$entry->id], $current_entry_date);
+                    $this_content = FrmProContent::replace_calendar_date_shortcode($used_entries[$entry->id], $current_entry_date);
                     echo '<div class="frm_cal_multi_'. $entry->id .'">'. $this_content .'</div>';
                 } else {
                     // switch [event_date] to [calendar_date] so it can be replaced on each individual date instead of each entry
@@ -43,7 +45,7 @@ unset($day_class);
                     $this_content = apply_filters('frm_display_entry_content', $new_content, $entry, $shortcodes, $view, 'all', '', array( 'event_date' => $current_entry_date));
 
                     $used_entries[$entry->id] = $this_content;
-                    $this_content = FrmProFieldsHelper::replace_calendar_date_shortcode($this_content, $current_entry_date);
+                    $this_content = FrmProContent::replace_calendar_date_shortcode($this_content, $current_entry_date);
                     echo $this_content;
 
                     unset($this_content);

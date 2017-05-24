@@ -122,7 +122,7 @@ class FrmFieldsHelper {
             'size' => '', 'max' => '', 'label' => '', 'blank' => '',
             'required_indicator' => '*', 'invalid' => '', 'separate_value' => 0,
             'clear_on_focus' => 0, 'default_blank' => 0, 'classes' => '',
-			'custom_html' => '', 'captcha_size' => 'default', 'captcha_theme' => 'light',
+			'custom_html' => '', 'captcha_size' => 'normal', 'captcha_theme' => 'light',
         );
 
 		if ( $limit ) {
@@ -183,11 +183,11 @@ class FrmFieldsHelper {
 		return $msg;
 	}
 
-    public static function get_form_fields( $form_id, $error = false ) {
-        $fields = FrmField::get_all_for_form($form_id);
-        $fields = apply_filters('frm_get_paged_fields', $fields, $form_id, $error);
-        return $fields;
-    }
+	public static function get_form_fields( $form_id, $error = array() ) {
+		$fields = FrmField::get_all_for_form( $form_id );
+		$fields = apply_filters( 'frm_get_paged_fields', $fields, $form_id, $error );
+		return $fields;
+	}
 
 	public static function get_default_html( $type = 'text' ) {
 		if ( apply_filters( 'frm_normal_field_type_html', true, $type ) ) {
@@ -284,13 +284,25 @@ DEFAULT_HTML;
         $entry_key = FrmAppHelper::simple_get( 'entry', 'sanitize_title' );
         $html = str_replace('[entry_key]', $entry_key, $html);
 
+		if ( $form ) {
+			$form = (array) $form;
+
+			//replace [form_key]
+			$html = str_replace('[form_key]', $form['form_key'], $html);
+
+			//replace [form_name]
+			$html = str_replace('[form_name]', $form['name'], $html);
+		}
+
+		self::process_wp_shortcodes( $html );
+
         //replace [input]
         preg_match_all("/\[(input|deletelink)\b(.*?)(?:(\/))?\]/s", $html, $shortcodes, PREG_PATTERN_ORDER);
         global $frm_vars;
         $frm_settings = FrmAppHelper::get_settings();
 
         foreach ( $shortcodes[0] as $short_key => $tag ) {
-            $atts = shortcode_parse_atts( $shortcodes[2][ $short_key ] );
+            $atts = FrmShortcodeHelper::get_shortcode_attribute_array( $shortcodes[2][ $short_key ] );
 			$tag = self::get_shortcode_tag( $shortcodes, $short_key, array( 'conditional' => false, 'conditional_check' => false ) );
 
             $replace_with = '';
@@ -317,15 +329,6 @@ DEFAULT_HTML;
             $html = str_replace( $shortcodes[0][ $short_key ], $replace_with, $html );
         }
 
-		if ( $form ) {
-            $form = (array) $form;
-
-            //replace [form_key]
-            $html = str_replace('[form_key]', $form['form_key'], $html);
-
-            //replace [form_name]
-            $html = str_replace('[form_name]', $form['name'], $html);
-        }
         $html .= "\n";
 
         //Return html if conf_field to prevent loop
@@ -342,12 +345,19 @@ DEFAULT_HTML;
 
 		self::remove_collapse_shortcode( $html );
 
+        return $html;
+    }
+
+	/**
+	 * This filters shortcodes in the field HTML
+	 *
+	 * @since 2.02.11
+	 */
+	private static function process_wp_shortcodes( &$html ) {
 		if ( apply_filters( 'frm_do_html_shortcodes', true ) ) {
 			$html = do_shortcode( $html );
 		}
-
-        return $html;
-    }
+	}
 
 	/**
 	 * Add classes to a field div
@@ -473,13 +483,16 @@ DEFAULT_HTML;
 			$class_prefix = 'frm-';
 		}
 
-        if ( $lang != 'en' ) {
+		if ( ! empty( $lang ) ) {
 			$api_js_url .= '&hl=' . $lang;
-        }
+		}
 		$api_js_url = apply_filters( 'frm_recaptcha_js_url', $api_js_url );
 
         wp_register_script( 'recaptcha-api', $api_js_url, '', true );
         wp_enqueue_script( 'recaptcha-api' );
+
+		// for reverse compatability
+		$field['captcha_size'] = ( $field['captcha_size'] == 'default' ) ? 'normal' : $field['captcha_size'];
 
 ?>
 <div id="field_<?php echo esc_attr( $field['field_key'] ) ?>" class="<?php echo esc_attr( $class_prefix ) ?>g-recaptcha" data-sitekey="<?php echo esc_attr( $frm_settings->pubkey ) ?>" data-size="<?php echo esc_attr( $field['captcha_size'] ) ?>" data-theme="<?php echo esc_attr( $field['captcha_theme'] ) ?>"></div>
@@ -642,7 +655,7 @@ DEFAULT_HTML;
         );
 
         foreach ( $shortcodes[0] as $short_key => $tag ) {
-            $atts = shortcode_parse_atts( $shortcodes[3][ $short_key ] );
+            $atts = FrmShortcodeHelper::get_shortcode_attribute_array( $shortcodes[3][ $short_key ] );
 
             if ( ! empty( $shortcodes[3][ $short_key ] ) ) {
 				$tag = str_replace( array( '[', ']' ), '', $shortcodes[0][ $short_key ] );
@@ -862,17 +875,17 @@ DEFAULT_HTML;
         }
     }
 
-    /**
-    * Check if current field option is an "other" option
-    *
-    * @since 2.0.6
-    *
-    * @param string $opt_key
-    * @return boolean Returns true if current field option is an "Other" option
-    */
-    public static function is_other_opt( $opt_key ) {
-        return $opt_key && strpos( $opt_key, 'other' ) !== false;
-    }
+	/**
+	 * Check if current field option is an "other" option
+	 *
+	 * @since 2.0.6
+	 *
+	 * @param string $opt_key
+	 * @return boolean Returns true if current field option is an "Other" option
+	 */
+	public static function is_other_opt( $opt_key ) {
+		return $opt_key && strpos( $opt_key, 'other_' ) === 0;
+	}
 
     /**
     * Get value that belongs in "Other" text box
@@ -1015,7 +1028,8 @@ DEFAULT_HTML;
 	 * @since 2.0.6
 	 */
 	private static function set_other_value( $args, &$other_args ) {
-		$parent = $pointer = '';
+		$parent = '';
+		$pointer = '';
 
 		// Check for parent ID and pointer
 		$temp_array = explode( '[', $args['field_name'] );
@@ -1289,6 +1303,35 @@ DEFAULT_HTML;
 
 		$prepop = apply_filters( 'frm_bulk_field_choices', $prepop );
     }
+
+	/**
+	 * Display a field value selector
+	 *
+	 * @since 2.03.05
+	 *
+	 * @param int $selector_field_id
+	 * @param array $selector_args
+	 */
+    public static function display_field_value_selector( $selector_field_id, $selector_args ) {
+	    $field_value_selector = FrmFieldFactory::create_field_value_selector( $selector_field_id, $selector_args );
+	    $field_value_selector->display();
+    }
+
+	/**
+	 * Convert a field object to a flat array
+	 *
+	 * @since 2.03.05
+	 *
+	 * @param object $field
+	 *
+	 * @return array
+	 */
+	public static function convert_field_object_to_flat_array( $field ) {
+		$field_options = $field->field_options;
+		$field_array = get_object_vars( $field );
+		unset( $field_array['field_options'] );
+		return $field_array + $field_options;
+	}
 
 	public static function field_selection() {
 		_deprecated_function( __FUNCTION__, '2.0.9', 'FrmField::field_selection' );

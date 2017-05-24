@@ -4,13 +4,13 @@ if ( ! defined('ABSPATH') ) {
 }
 
 class FrmAppHelper {
-	public static $db_version = 33; //version of the database we are moving to
-	public static $pro_db_version = 37;
+	public static $db_version = 43; //version of the database we are moving to
+	public static $pro_db_version = 37; //deprecated
 
 	/**
 	 * @since 2.0
 	 */
-	public static $plug_version = '2.02.07';
+	public static $plug_version = '2.03.07';
 
     /**
      * @since 1.07.02
@@ -67,13 +67,6 @@ class FrmAppHelper {
 
 	public static function get_affiliate() {
 		return '';
-		$affiliate_id = apply_filters( 'frm_affiliate_link', get_option('frm_aff') );
-		$affiliate_id = strtolower( $affiliate_id );
-		$allowed_affiliates = array();
-		if ( ! in_array( $affiliate_id, $allowed_affiliates ) ) {
-			$affiliate_id = false;
-		}
-		return $affiliate_id;
 	}
 
     /**
@@ -238,7 +231,7 @@ class FrmAppHelper {
 		if ( $src == 'get' ) {
             $value = isset( $_POST[ $param ] ) ? stripslashes_deep( $_POST[ $param ] ) : ( isset( $_GET[ $param ] ) ? stripslashes_deep( $_GET[ $param ] ) : $default );
             if ( ! isset( $_POST[ $param ] ) && isset( $_GET[ $param ] ) && ! is_array( $value ) ) {
-                $value = stripslashes_deep( htmlspecialchars_decode( urldecode( $_GET[ $param ] ) ) );
+                $value = stripslashes_deep( htmlspecialchars_decode( $_GET[ $param ] ) );
             }
 			self::sanitize_value( $sanitize, $value );
 		} else {
@@ -473,7 +466,7 @@ class FrmAppHelper {
 
 	public static function get_group_cached_keys( $group ) {
 		$cached = wp_cache_get( 'cached_keys', $group );
-		if ( ! $cached ) {
+		if ( ! $cached || ! is_array( $cached ) ) {
 			$cached = array();
 		}
 
@@ -864,7 +857,7 @@ class FrmAppHelper {
      * @return string The base Google APIS url for the current version of jQuery UI
      */
     public static function jquery_ui_base_url() {
-		$url = 'http' . ( is_ssl() ? 's' : '' ) . '://ajax.googleapis.com/ajax/libs/jqueryui/' . self::script_version('jquery-ui-core');
+		$url = 'http' . ( is_ssl() ? 's' : '' ) . '://ajax.googleapis.com/ajax/libs/jqueryui/' . self::script_version( 'jquery-ui-core', '1.11.4' );
         $url = apply_filters('frm_jquery_ui_base_url', $url);
         return $url;
     }
@@ -872,25 +865,24 @@ class FrmAppHelper {
     /**
      * @param string $handle
      */
-	public static function script_version( $handle ) {
-        global $wp_scripts;
-    	if ( ! $wp_scripts ) {
-    	    return false;
-    	}
+	public static function script_version( $handle, $default = 0 ) {
+		global $wp_scripts;
+		if ( ! $wp_scripts ) {
+			return $default;
+		}
 
-        $ver = 0;
+		$ver = $default;
+		if ( ! isset( $wp_scripts->registered[ $handle ] ) ) {
+			return $ver;
+		}
 
-        if ( ! isset( $wp_scripts->registered[ $handle ] ) ) {
-            return $ver;
-        }
+		$query = $wp_scripts->registered[ $handle ];
+		if ( is_object( $query ) && ! empty( $query->ver ) ) {
+			$ver = $query->ver;
+		}
 
-        $query = $wp_scripts->registered[ $handle ];
-    	if ( is_object( $query ) ) {
-    	    $ver = $query->ver;
-    	}
-
-    	return $ver;
-    }
+		return $ver;
+	}
 
 	public static function js_redirect( $url ) {
 		return '<script type="text/javascript">window.location="' . esc_url_raw( $url ) . '"</script>';
@@ -963,7 +955,7 @@ class FrmAppHelper {
 				$alt_post_name = substr( $key, 0, 200 - ( strlen( $suffix ) + 1 ) ) . $suffix;
 				$key_check = FrmDb::get_var( $table_name, array( $column => $alt_post_name, 'ID !' => $id ), $column );
 				$suffix++;
-			} while ($key_check || is_numeric($key_check));
+			} while ( $key_check || is_numeric( $key_check ) );
 			$key = $alt_post_name;
         }
         return $key;
@@ -1130,10 +1122,9 @@ class FrmAppHelper {
             unset($opt, $defaut);
         }
 
-        if ( ! isset($values['custom_style']) ) {
-            $frm_settings = self::get_settings();
-			$values['custom_style'] = ( $post_values && isset( $post_values['options']['custom_style'] ) ) ? absint( $_POST['options']['custom_style'] ) : ( $frm_settings->load_style != 'none' );
-        }
+		if ( ! isset( $values['custom_style'] ) ) {
+			$values['custom_style'] = self::custom_style_value( $post_values );
+		}
 
 		foreach ( array( 'before', 'after', 'submit' ) as $h ) {
 			if ( ! isset( $values[ $h . '_html' ] ) ) {
@@ -1142,6 +1133,21 @@ class FrmAppHelper {
             unset($h);
         }
     }
+
+	/**
+	 * @since 2.2.10
+	 * @param array $post_values
+	 * @return boolean|int
+	 */
+	public static function custom_style_value( $post_values ) {
+		if ( ! empty( $post_values ) && isset( $post_values['options']['custom_style'] ) ) {
+			$custom_style = absint( $post_values['options']['custom_style'] );
+		} else {
+			$frm_settings = FrmAppHelper::get_settings();
+			$custom_style = ( $frm_settings->load_style != 'none' );
+		}
+		return $custom_style;
+	}
 
 	public static function get_meta_value( $field_id, $entry ) {
 		_deprecated_function( __FUNCTION__, '2.0.9', 'FrmEntryMeta::get_meta_value' );
@@ -1265,7 +1271,7 @@ class FrmAppHelper {
 	 * @param int|string $to in seconds
 	 * @return string $time_ago
 	 */
-	public static function human_time_diff( $from, $to = '' ) {
+	public static function human_time_diff( $from, $to = '', $levels = 1 ) {
 		if ( empty( $to ) ) {
 			$now = new DateTime;
 		} else {
@@ -1291,8 +1297,9 @@ class FrmAppHelper {
 			}
 		}
 
-		$time_strings = array_slice( $time_strings, 0, 1 );
-		$time_ago_string = $time_strings ? implode( ', ', $time_strings ) : '0 ' . __( 'seconds', 'formidable' );
+		$levels_deep = apply_filters( 'frm_time_ago_levels', $levels, compact( 'time_strings', 'from', 'to' ) );
+		$time_strings = array_slice( $time_strings, 0, $levels_deep );
+		$time_ago_string = $time_strings ? implode( ' ', $time_strings ) : '0 ' . __( 'seconds', 'formidable' );
 
 		return $time_ago_string;
 	}

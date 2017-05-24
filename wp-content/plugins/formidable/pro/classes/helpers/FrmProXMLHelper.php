@@ -158,6 +158,9 @@ class FrmProXMLHelper{
             set_time_limit(0); //Remove time limit to execute this function
         }
 
+		$unmapped_fields = self::get_unmapped_fields( $field_ids );
+		$field_ids = array_filter( $field_ids );
+
         if ( $f = fopen($path, 'r') ) {
             unset($path);
             $row = 0;
@@ -181,7 +184,7 @@ class FrmProXMLHelper{
 
                 self::convert_db_cols( $values );
                 self::convert_timestamps($values);
-                self::save_or_edit_entry($values);
+				self::save_or_edit_entry( $values, $unmapped_fields );
 
                 unset($_POST, $values);
 
@@ -195,6 +198,15 @@ class FrmProXMLHelper{
             return $row;
         }
     }
+
+	private static function get_unmapped_fields( $field_ids ) {
+		$unmapped_fields = array();
+		$mapped_fields = array_filter( $field_ids );
+		if ( $field_ids != $mapped_fields ) {
+			$unmapped_fields = array_diff( $field_ids, $mapped_fields );
+		}
+		return $unmapped_fields;
+	}
 
     private static function csv_to_entry_value($key, $field_id, $data, &$values) {
         $data[$key] = isset($data[$key]) ? $data[$key] : '';
@@ -283,6 +295,9 @@ class FrmProXMLHelper{
             case 'date':
                 $metas[$field_id] = self::get_date($metas[$field_id]);
             break;
+			case 'time':
+				$metas[ $field_id ] = FrmProAppHelper::format_time( $metas[ $field_id ] );
+			break;
             case 'data':
                 $metas[$field_id] = self::get_dfe_id($metas[$field_id], $field, $saved_entries);
             break;
@@ -294,8 +309,63 @@ class FrmProXMLHelper{
 			case 'form':
 				$metas[ $field_id ] = self::get_new_child_ids( $metas[ $field_id ], $field, $saved_entries );
 			break;
+		    case 'address':
+		    	$metas[ $field_id ] = self::format_imported_address_field_values( $metas[ $field_id ] );
+			break;
 	    }
     }
+
+	/**
+	 * Convert comma-separated address values to an associative array
+	 *
+	 * @since 2.02.13
+	 *
+	 * @param string|array $value
+	 *
+	 * @return array
+	 */
+	private static function format_imported_address_field_values( $value ) {
+		if ( is_array( $value ) ) {
+			return $value;
+		}
+
+		$value = explode( ', ', $value );
+
+		$count = count( $value );
+
+		if ( $count < 4 || $count > 6 ) {
+			return $value;
+		}
+
+		$new_value = FrmProAddressesController::empty_value_array();
+
+		$new_value['line1'] = $value[0];
+
+		$last_item = end( $value );
+
+		if ( $count == 6 || ( $count == 5 && is_numeric( $last_item ) ) ) {
+			$new_value['line2'] = $value[1];
+			$new_value['city']  = $value[2];
+			$new_value['state'] = $value[3];
+			$new_value['zip']   = $value[4];
+
+			if ( $count == 6 ) {
+				$new_value['country'] = $value[ 5 ];
+			}
+
+		} else {
+			$new_value['city']  = $value[1];
+			$new_value['state'] = $value[2];
+			$new_value['zip']   = $value[3];
+
+			if ( $count == 5 ) {
+				$new_value['country'] = $value[4];
+			}
+		}
+
+		return $new_value;
+	}
+
 
     /**
      * Convert timestamps to the database format
@@ -353,12 +423,14 @@ class FrmProXMLHelper{
     /**
      * Save the entry after checking if it should be created or updated
      */
-    private static function save_or_edit_entry($values) {
+	private static function save_or_edit_entry( $values, $unmapped_fields ) {
         $editing = false;
         if ( isset($values['id']) && $values['item_key'] ) {
-
-            //check for updating by entry ID
-            $editing = FrmDb::get_var( 'frm_items', array( 'form_id' => $values['form_id'], 'id' => $values['id']) );
+			//check for updating by entry ID
+			$editing = FrmDb::get_var( 'frm_items', array( 'form_id' => $values['form_id'], 'id' => $values['id'] ) );
+			if ( $editing ) {
+				//self::merge_old_entry( $unmapped_fields, $values );
+			}
         }
 
         if ( $editing ) {
@@ -367,6 +439,15 @@ class FrmProXMLHelper{
             FrmEntry::create($values);
         }
     }
+
+	private static function merge_old_entry( $unmapped_fields, &$values ) {
+		if ( $unmapped_fields ) {
+			$entry = FrmEntry::getOne( $values['id'], true );
+			if ( $entry ) {
+				$values['item_meta'] += $entry->metas;
+			}
+		}
+	}
 
     public static function get_file_id($value) {
         global $wpdb;
@@ -517,11 +598,33 @@ class FrmProXMLHelper{
 	 * Perform an action after a field is imported
 	 *
 	 * @since 2.0.25
-	 * @param array $f
+	 *
+	 * @param array $field_array
 	 * @param int $field_id
 	 */
-	public static function after_field_is_imported( $f, $field_id ) {
-		self::add_in_section_value_to_repeating_fields( $f, $field_id );
+	public static function after_field_is_imported( $field_array, $field_id ) {
+		self::add_in_section_value_to_repeating_fields( $field_array, $field_id );
+		self::update_page_titles( $field_array, $field_id );
+	}
+
+	/**
+	 * Update page title indexes after import
+	 *
+	 * @since 2.03.06
+	 *
+	 * @param array $field_array
+	 * @param int|string $new_id
+	 */
+	private static function update_page_titles( $field_array, $new_id ) {
+		if ( $field_array['type'] === 'break' ) {
+			$form = FrmForm::getOne( $field_array['form_id'] );
+			$old_id = $field_array['id'];
+			if ( isset( $form->options['rootline_titles'][ $old_id ] ) ) {
+				$form->options['rootline_titles'][ $new_id ] = $form->options['rootline_titles'][ $old_id ];
+				unset( $form->options['rootline_titles'][ $old_id ] );
+				FrmForm::update( $form->id, array( 'options' => $form->options ) );
+			}
+		}
 	}
 
 	/**

@@ -3,8 +3,11 @@
 class FrmProFieldsHelper{
 
     public static function get_default_value( $value, $field, $dynamic_default = true, $allow_array = false ) {
-		if ( is_array( maybe_unserialize( $value ) ) ) {
-			if ( FrmAppHelper::is_empty_value( $value ) || count( array_filter( $value ) ) === 0  ) {
+		$unserialized = maybe_unserialize( $value );
+		if ( is_array( $unserialized ) ) {
+			if ( $field->type == 'time' && FrmProTimeField::is_time_empty( $value ) ) {
+				$value = '';
+			} elseif ( FrmAppHelper::is_empty_value( $unserialized ) || count( array_filter( $unserialized ) ) === 0  ) {
 				$value = '';
 			} else {
 				return $value;
@@ -151,7 +154,7 @@ class FrmProFieldsHelper{
 	 * @since 2.0.8
 	 */
 	private static function get_other_shortcode_values( $args ) {
-		$atts = shortcode_parse_atts( stripslashes( $args['matches'][3][ $args['match_key'] ] ) );
+		$atts = FrmShortcodeHelper::get_shortcode_attribute_array( stripslashes( $args['matches'][3][ $args['match_key'] ] ) );
 		if ( isset( $atts['return_array'] ) ) {
 			$args['allow_array'] = $atts['return_array'];
 		}
@@ -295,7 +298,7 @@ class FrmProFieldsHelper{
 			preg_match_all( '/\[(frm-field-value)\b(.*?)(?:(\/))?\]/s', $value, $matches, PREG_PATTERN_ORDER );
 
 			foreach ( $matches[0] as $short_key => $tag ) {
-				$atts = shortcode_parse_atts( $matches[2][ $short_key ] );
+				$atts = FrmShortcodeHelper::get_shortcode_attribute_array( $matches[2][ $short_key ] );
 				$atts['return_array'] = $return_array;
 
 				$value = FrmProEntriesController::get_field_value_shortcode( $atts );
@@ -423,180 +426,61 @@ class FrmProFieldsHelper{
     }
 
 	public static function setup_new_vars( $values, $field ) {
-        $values['use_key'] = false;
+		$values['entry_id'] = 0;
 
-        foreach ( self::get_default_field_opts($values, $field) as $opt => $default ) {
-            $values[$opt] = (isset($field->field_options[$opt]) && $field->field_options[$opt] != '') ? $field->field_options[$opt] : $default;
-            unset($opt, $default);
-        }
+		self::fill_field_options( $field, $values, false );
+		self::prepare_field_array( $field, $values );
 
-        $values['hide_field'] = (array) $values['hide_field'];
-        $values['hide_field_cond'] = (array) $values['hide_field_cond'];
-        $values['hide_opt'] = (array) $values['hide_opt'];
+		if ( $values['type'] == 'scale' ) {
+			$values['minnum'] = 1;
+			$values['maxnum'] = 10;
 
-		if ( $values['type'] == 'data' && in_array( $values['data_type'], array( 'select', 'radio', 'checkbox' ) ) && is_numeric( $values['form_select'] ) ) {
-            FrmProDynamicFieldsController::add_options_for_dynamic_field( $field, $values );
-		} else if ( $values['type'] == 'lookup' ) {
-			FrmProLookupFieldsController::maybe_get_initial_lookup_field_options( $values );
-		} else if ( $values['type'] == 'scale' ) {
-            $values['minnum'] = 1;
-            $values['maxnum'] = 10;
-		} else if ( $values['type'] == 'date' ) {
-            $values['value'] = FrmProAppHelper::maybe_convert_from_db_date($values['value'], 'Y-m-d');
-		} else if ( $values['type'] == 'time' ) {
-            $values['options'] = self::get_time_options($values);
-        } else if ( $values['type'] == 'user_id' && FrmAppHelper::is_admin() && current_user_can('frm_edit_entries') && ! FrmAppHelper::is_admin_page('formidable' ) ) {
-            if ( self::field_on_current_page($field) ) {
-                $user_ID = get_current_user_id();
-                $values['type'] = 'select';
-                $values['options'] = self::get_user_options();
-                $values['use_key'] = true;
-                $values['custom_html'] = FrmFieldsHelper::get_default_html('select');
+		} else if ( $values['type'] == 'user_id' || $values['original_type'] == 'user_id' ) {
+			$show_admin_field = FrmAppHelper::is_admin() && current_user_can('frm_edit_entries') && ! FrmAppHelper::is_admin_page('formidable' );
+			if ( $show_admin_field && self::field_on_current_page( $field ) ) {
+				$user_ID = get_current_user_id();
 				$values['value'] = ( $_POST && isset($_POST['item_meta'][ $field->id ] ) ) ? $_POST['item_meta'][ $field->id ] : $user_ID;
-            }
-		} else if ( ! empty( $values['options'] ) ) {
-			foreach ( $values['options'] as $val_key => $val_opt ) {
-				if ( is_array( $val_opt ) ) {
-					foreach ( $val_opt as $opt_key => $opt ) {
-                        $values['options'][$val_key][$opt_key] = self::get_default_value($opt, $field, false);
-                        unset( $opt_key, $opt );
-                    }
-                }else{
-                   $values['options'][$val_key] = self::get_default_value($val_opt, $field, false);
-                }
-				unset( $val_key, $val_opt );
-            }
-        }
+			}
+		}
 
-		if ( $values['post_field'] == 'post_category' ) {
-            $values['use_key'] = true;
-            $values['options'] = self::get_category_options($values);
-            if ( $values['type'] == 'data' && $values['data_type'] == 'select' && ( ! $values['multiple'] || $values['autocom'] ) ) {
-                // add a blank option
-                $values['options'] = array( '' => '') + (array) $values['options'];
-            }
-		} else if ( $values['post_field'] == 'post_status' ) {
-            $values['use_key'] = true;
-			$values['options'] = self::get_status_options( $field, $values['options'] );
-        }
+		self::prepare_post_fields( $field, $values );
+		self::filter_default_values( $field, $values );
+		self::add_field_javascript( $values );
 
+		return $values;
+	}
+
+	private static function filter_default_values( $field, &$values ) {
 		if ( is_array( $values['value'] ) ) {
 			foreach ( $values['value'] as $val_key => $val ) {
 				$values['value'][ $val_key ] = apply_filters( 'frm_filter_default_value', $val, $field, false );
 			}
 		} else if ( ! empty( $values['value'] ) ) {
-            $values['value'] = apply_filters('frm_filter_default_value', $values['value'], $field, false);
-        }
-
-        self::add_field_javascript( $values );
-
-        return $values;
-    }
-
-	/**
-	* Initialize the field array when a field is loaded independent of the rest of the form
-	*
-	* @param object $field_object
-	* @return array $args
-	*/
-	public static function initialize_array_field( $field_object, $args = array() ) {
-		$field_values = array( 'id', 'required', 'name', 'description', 'form_id', 'options', 'field_key', 'type' );
-		$field = array( 'value' => '' );
-		foreach ( $field_values as $field_value ) {
-			$field[ $field_value ] = $field_object->{$field_value};
+			$values['value'] = apply_filters( 'frm_filter_default_value', $values['value'], $field, false );
 		}
-
-		$field['original_type'] = $field['type'];
-		$field['type'] = apply_filters( 'frm_field_type', $field['type'], $field_object, '' );
-		$field['size'] = ( isset( $field_object->field_options['size'] ) && $field_object->field_options['size'] != '' ) ? $field_object->field_options['size'] : '';
-		$field['blank'] = $field_object->field_options['blank'];
-		$field['default_value'] = isset( $args['default_value'] ) ? $args['default_value'] : '';
-
-		if ( isset( $args['field_id'] ) ) {
-			// this might not be needed. Is field_id ever different from $field['id']?
-			$field['id'] = $args['field_id'];
-		}
-
-		return $field;
 	}
 
-	/**
-	* Add field-specific JavaScript to global $frm_vars
-	*
-	* @since 2.01.0
-	* @param array $values
-	*/
-	public static function add_field_javascript( $values ) {
-		self::setup_conditional_fields($values);
-		FrmProLookupFieldsController::setup_lookup_field_js( $values );
-	}
-
-    public static function setup_edit_vars( $values, $field, $entry_id = false ) {
-        $values['use_key'] = false;
+	public static function setup_edit_vars( $values, $field, $entry_id = 0 ) {
+		$values['entry_id'] = $entry_id;
 
 		self::fill_field_options( $field, $values );
+		self::prepare_field_array( $field, $values );
 
-        $values['hide_field'] = (array) $values['hide_field'];
-        $values['hide_field_cond'] = (array) $values['hide_field_cond'];
-        $values['hide_opt'] = (array) $values['hide_opt'];
-
-		if ( $values['type'] == 'lookup' ) {
-			FrmProLookupFieldsController::maybe_get_initial_lookup_field_options( $values );
-
-		} else if ( $values['type'] == 'data' && in_array($values['data_type'], array( 'select', 'radio', 'checkbox')) && is_numeric($values['form_select']) ) {
-            FrmProDynamicFieldsController::add_options_for_dynamic_field( $field, $values );
-        } else if ( $values['type'] == 'date' || $values['original_type'] == 'date' ) {
-            $values['value'] = FrmProAppHelper::maybe_convert_from_db_date( $values['value'] );
-
-        } else if ( $values['type'] == 'hidden' && FrmAppHelper::is_admin() && current_user_can('administrator') && ! FrmAppHelper::is_admin_page('formidable' ) ) {
-            if ( self::field_on_current_page($field) ) {
-                $values['type'] = 'text';
-                $values['custom_html'] = FrmFieldsHelper::get_default_html('text');
-            }
-        } else if ( $values['type'] == 'time' ) {
-            $values['options'] = self::get_time_options($values);
-        } else if ( $values['type'] == 'user_id' && FrmAppHelper::is_admin() && current_user_can('frm_edit_entries') && ! FrmAppHelper::is_admin_page('formidable' ) ) {
-            if ( self::field_on_current_page($field) ) {
-                $values['type'] = 'select';
-                $values['options'] = self::get_user_options();
-                $values['use_key'] = true;
-                $values['custom_html'] = FrmFieldsHelper::get_default_html('select');
-            }
-		} else if ( $values['type'] == 'tag' ) {
+		if ( $values['type'] == 'tag' ) {
 			if ( empty( $values['value'] ) ) {
-                self::tags_to_list($values, $entry_id);
-            }
-        } else if ( ! empty($values['options']) && ( ! FrmAppHelper::is_admin() || ! FrmAppHelper::is_admin_page('formidable' ) ) ) {
-			foreach ( $values['options'] as $val_key => $val_opt ) {
-				if ( is_array( $val_opt ) ) {
-					foreach ( $val_opt as $opt_key => $opt ) {
-						$values['options'][ $val_key ][ $opt_key ] = self::get_default_value( $opt, $field, false );
-                        unset($opt_key, $opt);
-                    }
-                }else{
-                   $values['options'][$val_key] = self::get_default_value($val_opt, $field, false);
-                }
-                unset($val_key, $val_opt);
-            }
-        }
+				self::tags_to_list($values, $entry_id);
+			}
+		}
 
-		if ( $values['post_field'] == 'post_category' ) {
-            $values['use_key'] = true;
-            $values['options'] = self::get_category_options($values);
-            if ( $values['type'] == 'data' && $values['data_type'] == 'select' && ( ! $values['multiple'] || $values['autocom'] ) ) {
-                $values['options'] = array( '' => '') + (array) $values['options'];
-            }
-		} else if ( $values['post_field'] == 'post_status' ) {
-            $values['use_key'] = true;
-			$values['options'] = self::get_status_options( $field, $values['options'] );
-        }
+		self::maybe_show_hidden_field( $field, $values );
+		self::prepare_post_fields( $field, $values );
 
 		FrmProNestedFormsController::format_saved_values_for_hidden_nested_forms( $values );
 
-        self::add_field_javascript( $values );
+		self::add_field_javascript( $values );
 
-        return $values;
-    }
+		return $values;
+	}
 
 	/**
 	* Populate the options for a field when loaded (front and back-end)
@@ -605,14 +489,131 @@ class FrmProFieldsHelper{
 	* @param object $field
 	* @param array $values, pass by reference
 	*/
-	private static function fill_field_options( $field, &$values ) {
+	private static function fill_field_options( $field, &$values, $allow_blank = true ) {
+		$values['use_key'] = false;
+
 		foreach ( self::get_default_field_opts( $values, $field ) as $opt => $default ) {
-			if ( isset( $field->field_options[ $opt ] ) ) {
+			$use_value = isset( $field->field_options[ $opt ] ) && ( $field->field_options[ $opt ] != '' || $allow_blank );
+			if ( $use_value ) {
 				$values[ $opt ] = $field->field_options[ $opt ];
 			} else {
 				$values[ $opt ] = $default;
 			}
 		}
+	}
+
+	/**
+	* Used to setup fields for new and edit
+	*
+	* @since 2.2.10
+	*/
+	private static function prepare_field_array( $field, &$values ) {
+		$values['hide_field'] = (array) $values['hide_field'];
+		$values['hide_field_cond'] = (array) $values['hide_field_cond'];
+		$values['hide_opt'] = (array) $values['hide_opt'];
+		$values['name'] = self::get_default_value( $values['name'], $field, false );
+		self::prepare_field_types( $field, $values );
+	}
+
+	private static function prepare_field_types( $field, &$values ) {
+
+		if ( $values['type'] == 'data' && in_array( $values['data_type'], array( 'select', 'radio', 'checkbox' ) ) && is_numeric( $values['form_select'] ) ) {
+			FrmProDynamicFieldsController::add_options_for_dynamic_field( $field, $values, array( 'entry_id' => $values['entry_id'] ) );
+	
+		} elseif ( $values['type'] == 'time' ) {
+			$values['options'] = FrmProTimeField::get_time_options( $values );
+			$values['value'] = self::get_time_display_value( $values['value'], array(), $field );
+		} elseif ( $values['type'] == 'date' || $values['original_type'] == 'date' ) {
+			$values['value'] = FrmProAppHelper::maybe_convert_from_db_date( $values['value'] );
+		} elseif ( $values['type'] == 'lookup' ) {
+			FrmProLookupFieldsController::maybe_get_initial_lookup_field_options( $values );
+		} elseif ( $values['type'] == 'user_id' ) {
+			self::prepare_user_id_field( $field, $values );
+		} elseif ( ! empty( $values['options'] ) ) {
+			$is_builder_page = FrmAppHelper::is_admin() && FrmAppHelper::is_admin_page('formidable' );
+			if ( ! $is_builder_page ) {
+				self::prepare_to_show_field_options( $field, $values );
+			}
+		}
+	}
+
+	private static function prepare_user_id_field( $field, &$values ) {
+		$show_admin_field = FrmAppHelper::is_admin() && current_user_can('frm_edit_entries') && ! FrmAppHelper::is_admin_page('formidable' );
+		if ( $show_admin_field && self::field_on_current_page( $field ) ) {
+			$values['type'] = 'select';
+			$values['options'] = self::get_user_options();
+			$values['use_key'] = true;
+			$values['custom_html'] = FrmFieldsHelper::get_default_html('select');
+		}
+	}
+
+	private static function prepare_post_fields( $field, &$values ) {		
+		if ( $values['post_field'] == 'post_category' ) {
+			$values['use_key'] = true;
+			$values['options'] = self::get_category_options( $values );
+			if ( $values['type'] == 'data' && $values['data_type'] == 'select' && ( ! $values['multiple'] || $values['autocom'] ) ) {
+				// add a blank option
+				$values['options'] = array( '' => '' ) + (array) $values['options'];
+			}
+		} else if ( $values['post_field'] == 'post_status' && ! in_array( $field->type, array( 'hidden', 'text' ) ) ) {
+			$values['use_key'] = true;
+			$values['options'] = self::get_status_options( $field, $values['options'] );
+		}
+	}
+
+	private static function prepare_to_show_field_options( $field, &$values ) {
+		foreach ( $values['options'] as $val_key => $val_opt ) {
+			self::maybe_remove_separate_value( $field, $val_opt );
+			if ( is_array( $val_opt ) ) {
+				foreach ( $val_opt as $opt_key => $opt ) {
+					$values['options'][ $val_key ][ $opt_key ] = self::get_default_value( $opt, $field, false );
+					unset( $opt_key, $opt );
+				}
+			} else {
+				$values['options'][ $val_key ] = self::get_default_value( $val_opt, $field, false );
+			}
+			unset( $val_key, $val_opt );
+		}
+	}
+
+	/**
+	 * If a field doesn't have separate values, simplify the options array
+	 * to include only the key and displayed value.
+	 * Since v2.03, the field options always include separate values.
+	 * This causes trouble with custom code reverse compatability.
+	 *
+	 * @since 2.03.05
+	 */
+	private static function maybe_remove_separate_value( $field, &$opt ) {
+		if ( ! is_array( $opt ) || ! isset( $opt['label'] ) ) {
+			return;
+		}
+
+		$no_separate_values = FrmField::is_option_empty( $field, 'separate_value' );
+		if ( $no_separate_values ) {
+			$opt = $opt['label'];
+		}
+	}
+
+	private static function maybe_show_hidden_field( $field, &$values ) {
+		if ( $values['type'] == 'hidden' ) {
+			$admin_edit = FrmAppHelper::is_admin() && current_user_can('administrator') && ! FrmAppHelper::is_admin_page('formidable' );
+			if ( $admin_edit && self::field_on_current_page( $field ) ) {
+				$values['type'] = 'text';
+				$values['custom_html'] = FrmFieldsHelper::get_default_html('text');
+			}
+		}
+	}
+
+	/**
+	 * Add field-specific JavaScript to global $frm_vars
+	 *
+	 * @since 2.01.0
+	 * @param array $values
+	 */
+	public static function add_field_javascript( $values ) {
+		self::setup_conditional_fields( $values );
+		FrmProLookupFieldsController::setup_lookup_field_js( $values );
 	}
 
     public static function tags_to_list(&$values, $entry_id) {
@@ -652,7 +653,7 @@ class FrmProFieldsHelper{
 			case 'scale':
 				if ( $field ) {
 					$range = maybe_unserialize( $field->options );
-					$minnum = $range[0];
+					$minnum = reset( $range );
 					$maxnum = end( $range );
 				}
 			break;
@@ -681,7 +682,8 @@ class FrmProFieldsHelper{
             'data_type' => 'select', 'restrict' => 0, 'start_year' => 2000, 'end_year' => 2020, 'read_only' => 0,
             'admin_only' => '', 'locale' => '', 'attach' => false, 'minnum' => $minnum, 'maxnum' => $maxnum,
 			'delete' => false,
-            'step' => $step, 'clock' => 12, 'start_time' => '00:00', 'end_time' => '23:'.$end_minute,
+			'step' => $step, 'clock' => 12, 'single_time' => 0,
+			'start_time' => '00:00', 'end_time' => '23:' . $end_minute,
 			'unique' => 0, 'use_calc' => 0, 'calc' => '', 'calc_dec' => '', 'calc_type' => '',
             'dyn_default_value' => '', 'multiple' => 0, 'unique_msg' => $frm_settings->unique_msg, 'autocom' => 0,
             'format' => '', 'repeat' => 0, 'add_label' => __( 'Add', 'formidable' ), 'remove_label' => __( 'Remove', 'formidable' ),
@@ -715,6 +717,33 @@ class FrmProFieldsHelper{
 		global $frm_input_masks;
 		$frm_input_masks[] = true;
 		return ' data-frmmask="'. esc_attr( preg_replace( '/\d/', '9', $format ) ) .'"';
+	}
+
+	/**
+	* Initialize the field array when a field is loaded independent of the rest of the form
+	*
+	* @param object $field_object
+	* @return array $args
+	*/
+	public static function initialize_array_field( $field_object, $args = array() ) {
+		$field_values = array( 'id', 'required', 'name', 'description', 'form_id', 'options', 'field_key', 'type' );
+		$field = array( 'value' => '' );
+		foreach ( $field_values as $field_value ) {
+			$field[ $field_value ] = $field_object->{$field_value};
+		}
+
+		$field['original_type'] = $field['type'];
+		$field['type'] = apply_filters( 'frm_field_type', $field['type'], $field_object, '' );
+		$field['size'] = ( isset( $field_object->field_options['size'] ) && $field_object->field_options['size'] != '' ) ? $field_object->field_options['size'] : '';
+		$field['blank'] = $field_object->field_options['blank'];
+		$field['default_value'] = isset( $args['default_value'] ) ? $args['default_value'] : '';
+
+		if ( isset( $args['field_id'] ) ) {
+			// this might not be needed. Is field_id ever different from $field['id']?
+			$field['id'] = $args['field_id'];
+		}
+
+		return $field;
 	}
 
 	/**
@@ -1090,10 +1119,7 @@ class FrmProFieldsHelper{
 	 * @return array $field_array
 	 */
 	public static function convert_field_object_to_flat_array( $field ) {
-		$field_options = $field->field_options;
-		$field_array = get_object_vars( $field );
-		unset( $field_array['field_options'] );
-		return $field_array + $field_options;
+		return FrmFieldsHelper::convert_field_object_to_flat_array( $field );
 	}
 
 	/**
@@ -1365,142 +1391,124 @@ class FrmProFieldsHelper{
     	echo '</div>';
     }
 
+    /**
+	 * Filter the post status options for the current user
+	 * Add default options if there are no valid options
+	 *
+	 * @param object $field
+	 * @param array $options
+	 *
+	 * @return array
+	 */
 	public static function get_status_options( $field, $options = array() ) {
-        $post_type = FrmProFormsHelper::post_type($field->form_id);
-        $post_type_object = get_post_type_object($post_type);
+		return self::get_post_status_options( $field->form_id, $options );
+	}
 
-        if ( ! $post_type_object ) {
-            return $options;
-        }
+	/**
+	 * Filter the post status options for the current user
+	 * Add default options if there are no valid options
+	 *
+	 * @param string $form_id
+	 * @param array $options
+	 *
+	 * @return array
+	 */
+	public static function get_post_status_options( $form_id, $options = array() ) {
+		if ( FrmAppHelper::is_admin() ) {
+			$post_status_options = self::get_initial_post_status_options();
+		} else {
+			$post_status_options = self::get_post_status_options_for_current_user( $form_id );
+		}
 
-		$new_options = array();
+		if ( empty( $post_status_options ) ) {
+			return array();
+		}
+
+		$post_status_keys = array_keys( $post_status_options );
+		$post_status_keys[] = 'publish'; // allow publish to be included as an option for everyone
+
+		$final_options = array();
 		foreach ( $options as $opt_key => $opt ) {
 			if ( is_array( $opt ) ){
 				$opt_key = isset( $opt['value'] ) ? $opt['value'] : ( isset( $opt['label'] ) ? $opt['label'] : reset( $opt ) );
 			} else {
 				$opt_key = $opt;
 			}
-			if ( in_array( $opt_key, array( 'publish', 'private' ) ) ) {
-				$new_options[ $opt_key ] = $opt;
+
+			if ( in_array( $opt_key, $post_status_keys ) ) {
+				$final_options[ $opt_key ] = $opt;
 			}
 		}
 
-		if ( ! empty( $new_options ) ) {
-			return $new_options;
+		if ( empty( $final_options ) ) {
+			$final_options = $post_status_options;
 		}
 
-        $can_publish = current_user_can($post_type_object->cap->publish_posts);
-        $options = get_post_statuses(); //'draft', pending, publish, private
+		return $final_options;
+	}
 
-        // Contributors only get "Unpublished" and "Pending Review"
-        if ( ! $can_publish ) {
-        	unset($options['publish']);
-			if ( isset( $options['future'] ) ) {
-				unset( $options['future'] );
+    /**
+	 * Get the initial options for a Post Status field
+	 *
+	 * @since 2.03.01
+	 *
+	 * @return array
+	 */
+	public static function get_initial_post_status_options() {
+		$post_statuses = get_post_statuses();
+
+		foreach ( $post_statuses as $key => $value ) {
+			$post_statuses[ $key ] = array( 'label' => $value, 'value' => $key );
+		}
+
+		return $post_statuses;
+	}
+
+    /**
+	 * Get the possible post status options for the current user
+	 *
+	 * @since 2.03.01
+	 *
+	 * @param string $form_id
+	 *
+	 * @return array - associative array with lowercase post status options as keys
+	 */
+	private static function get_post_status_options_for_current_user( $form_id ) {
+		$post_status_options = array();
+		$post_type = FrmProFormsHelper::post_type( $form_id );
+		$post_type_object = get_post_type_object( $post_type );
+
+		if ( ! $post_type_object ) {
+			return $post_status_options;
+		}
+
+		$post_status_options = get_post_statuses();
+
+		// Remove options that the current user should not have
+		$can_publish = current_user_can( $post_type_object->cap->publish_posts );
+		if ( ! $can_publish ) {
+			unset( $post_status_options['publish'] );
+
+			if ( isset( $post_status_options['future'] ) ) {
+				unset( $post_status_options['future'] );
 			}
-        }
-        return $options;
-    }
+		}
+
+		return $post_status_options;
+	}
 
 	public static function get_user_options() {
-        global $wpdb;
-        $users = get_users( array( 'fields' => array( 'ID','user_login','display_name'), 'blog_id' => $GLOBALS['blog_id'], 'orderby' => 'display_name'));
-        $options = array( '' => '');
+		$users = get_users( array(
+			'fields' => array( 'ID', 'user_login', 'display_name'),
+			'blog_id' => $GLOBALS['blog_id'],
+			'orderby' => 'display_name',
+		) );
+
+		$options = array( '' => '' );
 		foreach ( $users as $user ) {
 			$options[ $user->ID ] = ( ! empty( $user->display_name ) ) ? $user->display_name : $user->user_login;
 		}
         return $options;
-    }
-
-	public static function get_time_options( $values ) {
-		if ( empty( $values['start_time'] ) ) {
-			$values['start_time'] = '00:00';
-		}
-
-		if ( empty( $values['end_time'] ) ) {
-			$values['end_time'] = '23:59';
-		}
-
-        $time = strtotime($values['start_time']);
-        $end_time = strtotime($values['end_time']);
-        $step = explode(':', $values['step']);
-        $step = (isset($step[1])) ? ($step[0] * 3600 + $step[1] * 60) : ($step[0] * 60);
-        if ( empty($step) ) {
-            // force an hour step if none was defined to prevent infinite loop
-            $step = 60;
-        }
-        $format = ($values['clock'] == 24) ? 'H:i' : 'h:i A';
-
-        $options = array( '' );
-		while ( $time <= $end_time ) {
-            $options[] = date($format, $time);
-            $time += $step;
-        }
-
-        return $options;
-
-        /*
-        //Separate dropdowns
-        $step = $values['step'];
-        $hour_step = floor($step / 60);
-        if(!$hour_step)
-            $hour_step = 1;
-        $start_time = $values['start_time'];
-        $end_time = $values['end_time'];
-        $show24Hours = ((isset($values['clock']) and $values['clock'] == 24) ? true : false);
-        $separator = ':';
-
-        $start = explode($separator, $start_time);
-        $end = explode($separator, $end_time);
-
-        if($end[0] < $start[0])
-            $end[0] += 12;
-
-        $options = array();
-        $options['H'] = range($start[0], $end[0], $hour_step);
-        foreach($options['H'] as $k => $h){
-            if(!$show24Hours and $h > 12)
-                $options['H'][$k] = $h - 12;
-
-            if(!$options['H'][$k]){
-                unset($options['H'][$k]); //remove 0
-                continue;
-            }
-
-            if($options['H'][$k] < 10)
-                $options['H'][$k] = '0'. $options['H'][$k];
-
-            unset($k);
-            unset($h);
-        }
-        $options['H'] = array_unique($options['H']);
-        sort($options['H']);
-        array_unshift($options['H'], '');
-
-        if($step > 60){
-            if($step %60 == 0){
-                //the step is an even hour
-                $step = 60;
-            }else{
-                //get the number of minutes
-                $step = $step - ($hour_step*60);
-            }
-        }
-
-        $options['m'] = range($start[1], 59, $step);
-        foreach($options['m'] as $k => $m){
-            if($m < 10)
-                $options['m'][$k] = '0'. $m;
-            unset($k);
-            unset($m);
-        }
-
-        array_unshift($options['m'], '');
-
-        if(!$show24Hours)
-            $options['A'] = array( '', 'AM', 'PM');
-
-        return $options;*/
     }
 
     public static function posted_field_ids( $where ) {
@@ -1574,10 +1582,11 @@ class FrmProFieldsHelper{
 		return $default_date;
 	}
 
-    public static function get_form_fields( $fields, $form_id, $error = false ) {
+    public static function get_form_fields( $fields, $form_id, $errors = array() ) {
 		global $frm_vars;
 
-		$page_numbers = self::get_base_page_info( compact( 'fields', 'form_id', 'error' ) );
+		$error = ! empty( $errors );
+		$page_numbers = self::get_base_page_info( compact( 'fields', 'form_id', 'error', 'errors' ) );
 
 		$ajax = FrmProFormsHelper::has_form_setting( array( 'form_id' => $form_id, 'setting_name' => 'ajax_submit', 'expected_setting' => 1 ) );
 
@@ -1656,7 +1665,16 @@ class FrmProFieldsHelper{
             $page_numbers['set_prev'] = $page_numbers['prev_page'];
 
             if ( $page_numbers['prev_page'] ) {
-                $page_numbers['prev_page'] = $page_numbers['prev_page'] - 1;
+				$came_from_page = self::get_last_page_num( $atts );
+
+				if ( false === $came_from_page ) {
+					$page_numbers['prev_page'] = $page_numbers['prev_page'] - 1;
+				} else {
+					$page_numbers['prev_page'] = $came_from_page - 1;
+					if ( $page_numbers['set_prev'] ) {
+						$page_numbers['set_prev'] = $page_numbers['prev_page'];
+					}
+				}
             } else {
                 $page_numbers['prev_page'] = 999;
                 $page_numbers['get_last'] = true;
@@ -1664,6 +1682,39 @@ class FrmProFieldsHelper{
         }
 
 		return $page_numbers;
+	}
+
+	private static function get_last_page_num( $atts ) {
+		$has_last_page = isset( $_POST['frm_last_page'] );
+		if ( $has_last_page ) {
+			$came_from_page = FrmAppHelper::get_param( 'frm_last_page', false, 'get', 'sanitize_text_field' );
+		} else {
+			$came_from_page = false;
+		}
+
+		self::get_page_with_error( $atts, $came_from_page );
+		return $came_from_page;
+	}
+
+	private static function get_page_with_error( $atts, &$came_from_page ) {
+		if ( empty( $atts['errors'] ) ) {
+			return;
+		}
+
+		$error_fields = array_keys( $atts['errors'] );
+		$field_ids = array();
+		foreach ( $error_fields as $error_field ) {
+			if ( strpos( $error_field, 'field' ) === 0 ) {
+				$field_ids[] = str_replace( 'field', '', $error_field );
+			}
+		}
+
+		if ( ! empty( $field_ids ) ) {
+			$first_error = FrmDb::get_var( 'frm_fields', array( 'id' => $field_ids ), 'field_order', array( 'order_by' => 'field_order ASC' ) );
+			if ( is_numeric( $first_error ) ) {
+				$came_from_page = $first_error + 1;
+			}
+		}
 	}
 
 	/**
@@ -1684,14 +1735,6 @@ class FrmProFieldsHelper{
 						$frm_vars['datepicker_loaded'] = array();
 					}
 					$frm_vars['datepicker_loaded'][ 'field_' . $f->field_key ] = $ajax_now;
-				}
-			break;
-			case 'time':
-				if ( isset( $f->field_options['unique'] ) && $f->field_options['unique'] ) {
-					if ( ! isset( $frm_vars['timepicker_loaded'] ) ) {
-						$frm_vars['timepicker_loaded'] = array();
-					}
-					$frm_vars['timepicker_loaded'][ 'field_' . $f->field_key ] = $ajax_now;
 				}
 			break;
 			case 'text':
@@ -2230,7 +2273,17 @@ DEFAULT_HTML;
         return $image;
     }
 
-    public static function get_file_name( $media_ids, $short = true ) {
+    /**
+	 * Get the file name for the given media IDs
+	 *
+	 * @param $media_ids
+	 * @param bool $short
+	 * @param string $sep
+	 *
+	 * @return string
+	 */
+	public static function get_file_name( $media_ids, $short = true, $sep = 'default' ) {
+		$sep = ( $sep === 'default' ) ? "<br/>\r\n" : $sep;
         $value = '';
         foreach ( (array) $media_ids as $media_id ) {
             if ( ! is_numeric($media_id) ) {
@@ -2257,8 +2310,8 @@ DEFAULT_HTML;
 				if ( strpos( FrmAppHelper::simple_get( 'page', 'sanitize_title' ), 'formidable' ) === 0 ) {
 					$url .= '<br/><a href="' . esc_url( admin_url( 'media.php?action=edit&attachment_id=' . $media_id ) ) . '">' . __( 'Edit Uploaded File', 'formidable' ) . '</a>';
                 }
-            } else if ( !empty($value) ) {
-                $value .= "<br/>\r\n";
+            } else if ( ! empty( $value ) ) {
+                $value .= $sep;
             }
 
             $value .= $url;
@@ -2407,28 +2460,17 @@ DEFAULT_HTML;
 		}
 	}
 
-    public static function get_date( $date, $date_format = false ) {
-        if ( empty($date) ) {
-            return $date;
-        }
+	public static function get_date( $date, $date_format = false ) {
+		if ( empty( $date ) ) {
+			return $date;
+		}
 
-        if ( ! $date_format ) {
-            $date_format = apply_filters( 'frm_date_format', get_option( 'date_format' ) );
-        }
+		if ( ! $date_format ) {
+			$date_format = apply_filters( 'frm_date_format', get_option( 'date_format' ) );
+		}
 
-        if ( is_array($date) ) {
-            $dates = array();
-            foreach ( $date as $d ) {
-                $dates[] = self::get_single_date($d, $date_format);
-                unset($d);
-            }
-            $date = $dates;
-        } else {
-            $date = self::get_single_date($date, $date_format);
-        }
-
-        return $date;
-    }
+		return self::format_values_in_array( $date, $date_format, array( 'self', 'get_single_date' ) );
+	}
 
     public static function get_single_date($date, $date_format) {
 		if ( preg_match( '/^\d{1-2}\/\d{1-2}\/\d{4}$/', $date ) ) {
@@ -2438,6 +2480,25 @@ DEFAULT_HTML;
 
         return date_i18n($date_format, strtotime($date));
     }
+
+	public static function format_values_in_array( $value, $format, $callback ) {
+		if ( empty( $value ) ) {
+			return $value;
+		}
+
+		if ( is_array( $value ) ) {
+			$formated_values = array();
+			foreach ( $value as $v ) {
+				$formated_values[] = call_user_func_array( $callback, array( $v, $format ) );
+				unset( $v );
+			}
+			$value = $formated_values;
+		} else {
+			$value = call_user_func_array( $callback, array( $value, $format ) );
+		}
+
+		return $value;
+	}
 
     public static function get_display_name( $user_id, $user_info = 'display_name', $args = array() ) {
         $defaults = array(
@@ -2452,6 +2513,8 @@ DEFAULT_HTML;
         if ( $user ) {
             if ( $user_info == 'avatar' ) {
                 $info = get_avatar( $user_id, $args['size'] );
+			} elseif ( $user_info == 'author_link' ) {
+				$info = get_author_posts_url( $user_id );
             } else {
                 $info = isset($user->$user_info) ? $user->$user_info : '';
             }
@@ -2593,301 +2656,6 @@ DEFAULT_HTML;
     <?php
     }
 
-    public static function replace_shortcodes( $content, $entry, $shortcodes, $display = false, $show = 'one', $odd = '', $args = array() ) {
-        global $post;
-
-        if ( $display ) {
-            $param_value = ($display->frm_type == 'id') ? $entry->id : $entry->item_key;
-
-            if ( $entry->post_id ) {
-                $args['detail_link'] = get_permalink($entry->post_id);
-            } else {
-                $param = ( isset($display->frm_param) && ! empty($display->frm_param) ) ? $display->frm_param : 'entry';
-                if ( $post ) {
-					$args['detail_link'] = esc_url_raw( add_query_arg( $param, $param_value, get_permalink( $post->ID ) ) );
-                } else {
-                    $args['detail_link'] = esc_url_raw( add_query_arg( $param, $param_value ) );
-                }
-                //if( FrmProAppHelper::rewriting_on() && $frmpro_settings->permalinks )
-                //    $args['detail_link'] = get_permalink($post->ID) .$param_value .'/';
-            }
-        }
-        $args['odd'] = $odd;
-        $args['show'] = $show;
-
-        foreach ( $shortcodes[0] as $short_key => $tag ) {
-            self::replace_single_shortcode($shortcodes, $short_key, $tag, $entry, $display, $args, $content);
-        }
-
-        if ( empty($shortcodes[0]) ) {
-            return $content;
-        }
-
-        return FrmFieldsHelper::replace_content_shortcodes($content, $entry, $shortcodes);
-    }
-
-    public static function replace_single_shortcode($shortcodes, $short_key, $tag, $entry, $display, $args, &$content) {
-        $conditional = preg_match('/^\[if/s', $shortcodes[0][$short_key]) ? true : false;
-        $foreach = preg_match('/^\[foreach/s', $shortcodes[0][$short_key]) ? true : false;
-        $atts = shortcode_parse_atts( $shortcodes[3][$short_key] );
-
-        $tag = FrmFieldsHelper::get_shortcode_tag($shortcodes, $short_key, compact('conditional', 'foreach'));
-        if ( strpos($tag, '-') ) {
-            $switch_tags = array(
-                'post-id', 'created-at', 'updated-at',
-                'created-by', 'updated-by', 'parent-id',
-                'is-draft',
-            );
-            if ( in_array($tag, $switch_tags) ) {
-                $tag = str_replace('-', '_', $tag);
-            }
-            unset($switch_tags);
-        }
-
-        $tags = array(
-            'event_date', 'entry_count', 'detaillink', 'editlink', 'deletelink',
-            'created_at', 'updated_at', 'created_by', 'updated_by',
-            'evenodd', 'post_id', 'parent_id', 'id', 'is_draft',
-        );
-
-        if ( in_array($tag, $tags) ) {
-            $args['entry'] = $entry;
-            $args['tag'] = $tag;
-            $args['conditional'] = $conditional;
-			$function = 'do_shortcode_' . $tag;
-			self::$function( $content, $atts, $shortcodes, $short_key, $args, $display );
-            return;
-        }
-
-        $field = FrmField::getOne( $tag );
-        if ( ! $field ) {
-            return;
-        }
-
-		if ( ! $foreach && ! $conditional && isset( $atts['show'] ) && ( $atts['show'] == 'field_label' || $atts['show'] == 'description' ) ) {
-			// get the field label or description and return before any other checking
-			$replace_with = ( $atts['show'] == 'field_label' ) ? $field->name : $field->description;
-			$content = str_replace($shortcodes[0][$short_key], $replace_with, $content);
-			return;
-		}
-
-		$sep = isset( $atts['sep'] ) ? $atts['sep'] : ', ';
-
-        if ( $field->form_id == $entry->form_id ) {
-            $replace_with = FrmProEntryMetaHelper::get_post_or_meta_value($entry, $field, $atts);
-        } else {
-            // get entry ids linked through repeat field or embeded form
-            $child_entries = FrmProEntry::get_sub_entries($entry->id, true);
-            $replace_with = FrmProEntryMetaHelper::get_sub_meta_values($child_entries, $field, $atts);
-			$replace_with = FrmAppHelper::array_flatten( $replace_with );
-        }
-
-        $atts['entry_id'] = $entry->id;
-        $atts['entry_key'] = $entry->item_key;
-        $atts['post_id'] = $entry->post_id;
-
-		self::maybe_get_show_from_array( $replace_with, $atts );
-
-		$replace_with = apply_filters('frmpro_fields_replace_shortcodes', $replace_with, $tag, $atts, $field);
-
-		if ( isset( $atts['show'] ) && $atts['show'] == 'count' ) {
-			$replace_with = is_array( $replace_with ) ? count( $replace_with ) : ! empty( $replace_with );
-		} else if ( is_array( $replace_with ) && ! $foreach ) {
-			$keep_array = apply_filters( 'frm_keep_value_array', false, compact( 'field', 'replace_with' ) );
-			$keep_array = apply_filters( 'frm_keep_' . $field->type . '_value_array', $keep_array, compact( 'field', 'replace_with' ) );
-
-			if ( ! $keep_array && $field->type != 'file' ) {
-				$replace_with = FrmAppHelper::array_flatten( $replace_with );
-				$replace_with = implode( $sep, $replace_with );
-			} else if ( empty( $replace_with ) ) {
-				$replace_with = '';
-			}
-		}
-
-        if ( $foreach ) {
-            $atts['short_key'] = $shortcodes[0][$short_key];
-            $args['display'] = $display;
-            self::check_conditional_shortcode($content, $replace_with, $atts, $tag, 'foreach', $args);
-        } else if ( $conditional ) {
-            $atts['short_key'] = $shortcodes[0][$short_key];
-            self::check_conditional_shortcode($content, $replace_with, $atts, $tag, 'if', array( 'field' => $field ));
-        } else {
-			if ( empty( $replace_with ) && $replace_with != '0' ) {
-                $replace_with = '';
-                if ( $field->type == 'number' ) {
-                    $replace_with = '0';
-                }
-            } else {
-                $replace_with = FrmFieldsHelper::get_display_value($replace_with, $field, $atts);
-            }
-
-            self::trigger_shortcode_atts($atts, $display, $args, $replace_with);
-            $content = str_replace($shortcodes[0][$short_key], $replace_with, $content);
-        }
-    }
-
-    public static function replace_calendar_date_shortcode($content, $date) {
-        preg_match_all("/\[(calendar_date)\b(.*?)(?:(\/))?\]/s", $content, $matches, PREG_PATTERN_ORDER);
-        if ( empty($matches) ) {
-            return $content;
-        }
-
-        foreach ( $matches[0] as $short_key => $tag ) {
-            $atts = shortcode_parse_atts( $matches[2][$short_key] );
-            self::do_shortcode_event_date($content, $atts, $matches, $short_key, array( 'event_date' => $date));
-        }
-        return $content;
-    }
-
-    public static function do_shortcode_event_date(&$content, $atts, $shortcodes, $short_key, $args) {
-        $event_date = '';
-        if ( isset($args['event_date']) ) {
-            if ( ! isset($atts['format']) ) {
-                $atts['format'] = get_option('date_format');
-            }
-            $event_date = self::get_date($args['event_date'], $atts['format']);
-        }
-        $content = str_replace($shortcodes[0][$short_key], $event_date, $content);
-    }
-
-    public static function do_shortcode_entry_count(&$content, $atts, $shortcodes, $short_key, $args) {
-        $content = str_replace($shortcodes[0][$short_key], ( isset($args['record_count']) ? $args['record_count'] : '' ), $content);
-    }
-
-    public static function do_shortcode_detaillink(&$content, $atts, $shortcodes, $short_key, $args, $display) {
-        if ( $display && $args['detail_link'] ) {
-            $content = str_replace($shortcodes[0][$short_key], $args['detail_link'], $content);
-        }
-    }
-
-    public static function do_shortcode_editlink(&$content, $atts, $shortcodes, $short_key, $args) {
-        global $post;
-
-        $replace_with = '';
-        $link_text = isset($atts['label']) ? $atts['label'] : false;
-        if ( ! $link_text ) {
-            $link_text = isset($atts['link_text']) ? $atts['link_text'] : __( 'Edit');
-        }
-
-        $class = isset($atts['class']) ? $atts['class'] : '';
-        $page_id = isset($atts['page_id']) ? $atts['page_id'] : ($post ? $post->ID : 0);
-
-        if ( (isset($atts['location']) && $atts['location'] == 'front') || ( isset($atts['prefix']) && ! empty($atts['prefix']) ) || ( isset($atts['page_id']) && ! empty($atts['page_id']) ) ) {
-            $edit_atts = $atts;
-            $edit_atts['id'] = isset( $args['foreach_loop'] ) ? $args['entry']->parent_item_id : $args['entry']->id;
-            $edit_atts['page_id'] = $page_id;
-
-            $replace_with = FrmProEntriesController::entry_edit_link($edit_atts);
-        } else {
-            if ( $args['entry']->post_id ) {
-                $replace_with = get_edit_post_link($args['entry']->post_id);
-            } else if ( current_user_can('frm_edit_entries') ) {
-				$replace_with = admin_url( 'admin.php?page=formidable-entries&frm_action=edit&id=' . $args['entry']->id );
-            }
-
-            if ( ! empty($replace_with) ) {
-				$replace_with = '<a href="' . esc_url( $replace_with ) . '" class="frm_edit_link ' . esc_attr( $class ) . '">' . $link_text . '</a>';
-            }
-
-        }
-
-        $content = str_replace($shortcodes[0][$short_key], $replace_with, $content);
-    }
-
-    public static function do_shortcode_deletelink(&$content, $atts, $shortcodes, $short_key, $args) {
-        global $post;
-
-        $page_id = isset($atts['page_id']) ? $atts['page_id'] : ($post ? $post->ID : 0);
-
-        if ( ! isset( $atts['label'] ) ) {
-            $atts['label'] = false;
-        }
-        $delete_atts = $atts;
-        $delete_atts['id'] = $args['entry']->id;
-        $delete_atts['page_id'] = $page_id;
-
-        $replace_with = FrmProEntriesController::entry_delete_link($delete_atts);
-
-        $content = str_replace($shortcodes[0][$short_key], $replace_with, $content);
-    }
-
-    public static function do_shortcode_evenodd(&$content, $atts, $shortcodes, $short_key, $args) {
-        $content = str_replace($shortcodes[0][$short_key], $args['odd'], $content);
-    }
-
-    public static function do_shortcode_post_id(&$content, $atts, $shortcodes, $short_key, $args) {
-        $content = str_replace($shortcodes[0][$short_key], $args['entry']->post_id, $content);
-    }
-
-    public static function do_shortcode_parent_id(&$content, $atts, $shortcodes, $short_key, $args) {
-        $content = str_replace($shortcodes[0][$short_key], $args['entry']->parent_item_id, $content);
-    }
-
-    public static function do_shortcode_id(&$content, $atts, $shortcodes, $short_key, $args) {
-        $content = str_replace($shortcodes[0][$short_key], $args['entry']->id, $content);
-    }
-
-    public static function do_shortcode_created_at(&$content, $atts, $shortcodes, $short_key, $args) {
-        if ( isset($atts['format']) ) {
-            $time_format = ' ';
-        } else {
-            $atts['format'] = get_option('date_format');
-            $time_format = '';
-        }
-
-        if ( $args['conditional'] ) {
-            $atts['short_key'] = $shortcodes[0][$short_key];
-            self::check_conditional_shortcode($content, $args['entry']->{$args['tag']}, $atts, $args['tag']);
-        } else {
-            if ( isset($atts['time_ago']) ) {
-                $date = FrmAppHelper::human_time_diff( strtotime($args['entry']->{$args['tag']}) );
-            } else {
-                $date = FrmAppHelper::get_formatted_time($args['entry']->{$args['tag']}, $atts['format'], $time_format);
-            }
-
-            $content = str_replace($shortcodes[0][$short_key], $date, $content);
-        }
-    }
-
-    public static function do_shortcode_updated_at(&$content, $atts, $shortcodes, $short_key, $args) {
-        self::do_shortcode_created_at($content, $atts, $shortcodes, $short_key, $args);
-    }
-
-    public static function do_shortcode_created_by(&$content, $atts, $shortcodes, $short_key, $args) {
-        $replace_with = FrmFieldsHelper::get_display_value($args['entry']->{$args['tag']}, (object) array( 'type' => 'user_id'), $atts);
-
-        if ( $args['conditional'] ) {
-            $atts['short_key'] = $shortcodes[0][$short_key];
-            self::check_conditional_shortcode($content, $args['entry']->{$args['tag']}, $atts, $args['tag']);
-        } else {
-            $content = str_replace($shortcodes[0][$short_key], $replace_with, $content);
-        }
-    }
-
-    public static function do_shortcode_updated_by(&$content, $atts, $shortcodes, $short_key, $args) {
-        self::do_shortcode_created_by($content, $atts, $shortcodes, $short_key, $args);
-    }
-
-
-	/**
- 	* Process the is_draft shortcode
- 	*
- 	* @since 2.0.22
-	* @param string $content
-	* @param array $atts
-	* @param array $shortcodes
-	* @param string $short_key
-	* @param array $args
-	*/
-	public static function do_shortcode_is_draft( &$content, $atts, $shortcodes, $short_key, $args ) {
-		if ( $args['conditional'] ) {
-			$atts['short_key'] = $shortcodes[0][ $short_key ];
-			self::check_conditional_shortcode( $content, $args['entry']->is_draft, $atts, 'is_draft' );
-		} else {
-			$content = str_replace( $shortcodes[0][ $short_key ], $args['entry']->is_draft, $content );
-		}
-	}
-
 	/**
 	* Get the HTML for a file upload field depending on the $atts
 	*
@@ -2956,283 +2724,6 @@ DEFAULT_HTML;
 	}
 
 	/**
-	 * @since 2.0.23
-	 * when a value is saved as an array, allow show=something to
-	 * return a specified value from the array
-	 */
-	private static function maybe_get_show_from_array( &$replace_with, $atts ) {
-		if ( is_array( $replace_with ) && isset( $atts['show'] ) ) {
-			if ( isset( $replace_with[ $atts['show'] ] ) ) {
-				$replace_with = $replace_with[ $atts['show'] ];
-			} else if ( isset( $atts['blank'] ) && $atts['blank'] ) {
-				$replace_with = '';
-			}
-		}
-	}
-
-    public static function check_conditional_shortcode(&$content, $replace_with, $atts, $tag, $condition = 'if', $args = array() ) {
-        $defaults = array( 'field' => false);
-        $args = wp_parse_args($args, $defaults);
-
-        if ( 'if' == $condition ) {
-            $replace_with = self::conditional_replace_with_value( $replace_with, $atts, $args['field'], $tag );
-            $replace_with = apply_filters('frm_conditional_value', $replace_with, $atts, $args['field'], $tag);
-        }
-
-        $start_pos = strpos($content, $atts['short_key']);
-
-		// Replace identical conditional and foreach shortcodes in this loop
-        while( $start_pos !== false ) {
-
-			$start_pos_len = strlen($atts['short_key']);
-			$end_pos = strpos($content, '[/'. $condition .' '. $tag .']', $start_pos);
-			$end_pos_len = strlen('[/'. $condition .' '. $tag .']');
-
-			if ( $end_pos === false ) {
-				$end_pos = strpos($content, '[/'. $condition .']', $start_pos);
-				$end_pos_len = strlen('[/'. $condition .']');
-
-				if ( $end_pos === false ) {
-					return;
-				}
-			}
-
-			$total_len = ( $end_pos + $end_pos_len ) - $start_pos;
-
-			if ( empty($replace_with) ) {
-				$content = substr_replace($content, '', $start_pos, $total_len);
-			} else if ( 'foreach' == $condition ) {
-				$content_len = $end_pos - ( $start_pos + $start_pos_len );
-				$repeat_content = substr($content, $start_pos + $start_pos_len, $content_len);
-				self::foreach_shortcode($replace_with, $args, $repeat_content);
-				$content = substr_replace($content, $repeat_content, $start_pos, $total_len);
-			} else {
-				$content = substr_replace($content, '', $end_pos, $end_pos_len);
-				$content = substr_replace($content, '', $start_pos, $start_pos_len);
-			}
-
-			$start_pos = strpos($content, $atts['short_key']);
-        }
-    }
-
-    /**
-     * Loop through each entry linked through a repeating field when using [foreach]
-     */
-    public static function foreach_shortcode($replace_with, $args, &$repeat_content) {
-        $foreach_content = '';
-
-        $sub_entries = is_array( $replace_with ) ? $replace_with : explode(',', $replace_with);
-        foreach ( $sub_entries as $sub_entry ) {
-            $sub_entry = trim($sub_entry);
-            if ( ! is_numeric($sub_entry) ) {
-                continue;
-            }
-
-            $entry = FrmEntry::getOne($sub_entry);
-			if ( ! $entry ) {
-				continue;
-			}
-
-			$args['foreach_loop'] = true;
-
-            $shortcodes = FrmProDisplaysHelper::get_shortcodes($repeat_content, $entry->form_id);
-            $repeating_content = $repeat_content;
-            foreach ( $shortcodes[0] as $short_key => $tag ) {
-                self::replace_single_shortcode($shortcodes, $short_key, $tag, $entry, $args['display'], $args, $repeating_content);
-            }
-            $foreach_content .= $repeating_content;
-        }
-
-        $repeat_content = $foreach_content;
-    }
-
-    public static function conditional_replace_with_value($replace_with, $atts, $field, $tag) {
-        $conditions = array(
-            'equals', 'not_equal',
-            'like', 'not_like',
-            'less_than', 'greater_than',
-        );
-
-        if ( $field && $field->type == 'data' ) {
-            $old_replace_with = $replace_with;
-
-			// Only get the displayed value if it hasn't been set yet
-			if ( is_numeric( $replace_with ) || is_numeric( str_replace( array( ',', ' '), array( '', '' ), $replace_with ) ) || is_array( $replace_with ) ) {
-				$replace_with = FrmFieldsHelper::get_display_value($replace_with, $field, $atts);
-				if ( $old_replace_with == $replace_with ) {
-					$replace_with = '';
-				}
-			}
-        } else if ( ($field && $field->type == 'user_id') || in_array($tag, array( 'updated_by', 'created_by')) ) {
-            // check if conditional is for current user
-            if ( isset($atts['equals']) && $atts['equals'] == 'current' ) {
-                $atts['equals'] = get_current_user_id();
-            }
-
-            if ( isset($atts['not_equal']) && $atts['not_equal'] == 'current' ) {
-                $atts['not_equal'] = get_current_user_id();
-            }
-        } else if ( (in_array($tag, array( 'created-at', 'created_at', 'updated-at', 'updated_at')) || ( $field && $field->type == 'date') ) ) {
-            foreach ( $conditions as $att_name ) {
-                if ( isset($atts[$att_name]) && $atts[$att_name] != '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($atts[$att_name])) ) {
-					if ( $atts[ $att_name ] == 'NOW' ) {
-						$atts[ $att_name ] = FrmProAppHelper::get_date( 'Y-m-d' );
-					} else {
-						$atts[ $att_name ] = date_i18n( 'Y-m-d', strtotime( $atts[ $att_name ] ) );
-					}
-                }
-                unset($att_name);
-            }
-        }
-
-        self::eval_conditions($conditions, $atts, $replace_with, $field);
-
-        return $replace_with;
-    }
-
-    private static function eval_conditions($conditions, $atts, &$replace_with, $field) {
-        foreach ( $conditions as $condition ) {
-            if ( ! isset($atts[$condition]) ) {
-                continue;
-            }
-
-			$function = 'eval_' . $condition . '_condition';
-			self::$function( $atts, $replace_with, $field );
-        }
-    }
-
-    private static function eval_equals_condition($atts, &$replace_with, $field) {
-        if ( $replace_with != $atts['equals'] ) {
-            if ( $field && $field->type == 'data' ) {
-                $replace_with = FrmFieldsHelper::get_display_value($replace_with, $field, $atts);
-                if ( $replace_with != $atts['equals'] ) {
-                    $replace_with = '';
-                }
-            } else if ( isset($field->field_options['post_field']) && $field->field_options['post_field'] == 'post_category' ) {
-                $cats = explode(', ', $replace_with);
-                $replace_with = '';
-                foreach ( $cats as $cat ) {
-                    if ( $atts['equals'] == strip_tags($cat) ) {
-                        $replace_with = true;
-                        return;
-                    }
-                }
-            } else {
-                $replace_with = '';
-            }
-        } else if ( ( $atts['equals'] == '' && $replace_with == '' ) || ( $atts['equals'] == '0' && $replace_with == '0' ) ) {
-            //if the field is blank, give it a value
-            $replace_with = true;
-        }
-    }
-
-    private static function eval_not_equal_condition($atts, &$replace_with, $field) {
-        if ( $replace_with == $atts['not_equal'] ) {
-            $replace_with = '';
-        } else if ( $replace_with == '' && $atts['not_equal'] !== '' ) {
-			$replace_with = true;
-        } else if ( ! empty($replace_with) && isset($field->field_options['post_field']) && $field->field_options['post_field'] == 'post_category' ) {
-            $cats = explode(', ', $replace_with);
-            foreach ( $cats as $cat ) {
-                if ( $atts['not_equal'] == strip_tags($cat) ) {
-                    $replace_with = '';
-                    return;
-                }
-
-                unset($cat);
-            }
-		}
-    }
-
-    private static function eval_like_condition($atts, &$replace_with) {
-        if ( $atts['like'] == '' ) {
-            return;
-        }
-
-		if ( stripos( $replace_with, $atts['like'] ) === false ) {
-             $replace_with = '';
-        }
-    }
-
-    private static function eval_not_like_condition($atts, &$replace_with) {
-        if ( $atts['not_like'] == '' ) {
-            return;
-        }
-
-        if ( $replace_with == '' ) {
-            $replace_with = true;
-        } else if ( strpos($replace_with, $atts['not_like']) !== false ) {
-            $replace_with = '';
-        }
-    }
-
-    private static function eval_less_than_condition($atts, &$replace_with) {
-        if ( $atts['less_than'] <= $replace_with ) {
-            $replace_with = '';
-        } else if ( $atts['less_than'] > 0 && $replace_with == '0' ) {
-            $replace_with = true;
-        }
-    }
-
-    private static function eval_greater_than_condition($atts, &$replace_with) {
-        if ( $atts['greater_than'] >= $replace_with ) {
-            $replace_with = '';
-        }
-    }
-
-    public static function trigger_shortcode_atts($atts, $display, $args, &$replace_with) {
-        $frm_atts = array(
-            'sanitize', 'sanitize_url',
-            'truncate', 'clickable',
-        );
-        $included_atts = array_intersect($frm_atts, array_keys($atts));
-
-        foreach ( $included_atts as $included_att ) {
-			$function = 'atts_' . $included_att;
-			$replace_with = self::$function( $replace_with, $atts, $display, $args );
-        }
-    }
-
-    public static function atts_sanitize($replace_with) {
-        return sanitize_title_with_dashes($replace_with);
-    }
-
-    public static function atts_sanitize_url($replace_with) {
-        if ( seems_utf8($replace_with) ) {
-            $replace_with = utf8_uri_encode($replace_with, 200);
-        }
-        return urlencode($replace_with);
-    }
-
-    public static function atts_truncate($replace_with, $atts, $display, $args) {
-        if ( isset($atts['more_text']) ) {
-            $more_link_text = $atts['more_text'];
-        } else {
-            $more_link_text = isset($atts['more_link_text']) ? $atts['more_link_text'] : '. . .';
-        }
-
-		// If we're on the listing page of a Dynamic View, use detail link for truncate link
-		if ( $display && $display->frm_show_count == 'dynamic' && $args['show'] == 'all' ) {
-			$more_link_text = ' <a href="' . esc_url( $args['detail_link'] ) . '">' . $more_link_text . '</a>';
-            return FrmAppHelper::truncate($replace_with, (int) $atts['truncate'], 3, $more_link_text);
-        }
-
-		$clean_text = wp_strip_all_tags( $replace_with );
-		$part_one = FrmAppHelper::truncate( $clean_text, (int) $atts['truncate'], 3, '' );
-		$part_two = str_replace( $part_one, '', $clean_text );
-
-        if ( ! empty($part_two) ) {
-            $replace_with = $part_one .'<a href="#" onclick="jQuery(this).next().css(\'display\', \'inline\');jQuery(this).css(\'display\', \'none\');return false;" class="frm_text_exposed_show"> '. $more_link_text .'</a><span style="display:none;">'. $part_two .'</span>';
-        }
-
-        return $replace_with;
-    }
-
-    public static function atts_clickable($replace_with) {
-		return make_clickable( $replace_with );
-    }
-
-	/**
 	* Get HTML for a file upload field depending on atts and file type
 	*
 	* @since 2.0.19
@@ -3287,13 +2778,13 @@ DEFAULT_HTML;
 	* @return string $img_html
 	*/
 	private static function get_file_display( $id, $atts ) {
-		if ( empty( $id ) ) {
+		if ( empty( $id ) || ! self::file_exists_by_id( $id ) ) {
 			return '';
 		}
 
 		$img_html = $image_url = '';
 		$image = wp_get_attachment_image_src( $id, $atts['size'], false );
-		$is_non_image = empty( $image );
+		$is_non_image = ! wp_attachment_is_image( $id );
 
 		if ( $atts['show_image'] ) {
 			$img_html = wp_get_attachment_image( $id, $atts['size'], $is_non_image );
@@ -3333,6 +2824,23 @@ DEFAULT_HTML;
 	}
 
 	/**
+	 * Check if a file exists on the site
+	 *
+	 * @since 2.02.11
+	 * @param $id
+	 *
+	 * @return bool
+	 */
+	private static function file_exists_by_id( $id ) {
+		global $wpdb;
+
+		$query = $wpdb->prepare( 'SELECT post_type FROM ' . $wpdb->posts . ' WHERE ID=%d', $id );
+		$type = $wpdb->get_var( $query );
+
+		return ( $type === 'attachment' );
+	}
+
+	/**
 	* Get the file name for a single media ID
 	*
 	* @since 2.0.19
@@ -3361,7 +2869,7 @@ DEFAULT_HTML;
     }
 
 	public static function get_user_id_display_value($replace_with, $atts) {
-		$user_info = isset($atts['show']) ? $atts['show'] : 'display_name';
+		$user_info = self::prepare_user_info_attribute( $atts );
 		$replace_with = self::get_display_name($replace_with, $user_info, $atts);
 
 		if ( is_array( $replace_with ) ) {
@@ -3372,26 +2880,65 @@ DEFAULT_HTML;
 		return $replace_with;
 	}
 
-	public static function get_time_display_value( $replace_with, $atts, $field ) {
-		$time_clock = ( isset( $field->field_options['clock'] ) ) ? $field->field_options['clock'] : 12;
-		$defaults = array(
-			'format' => ( $time_clock == 24 ) ? 'H:i' : 'g:i A',
-		);
-		$atts = wp_parse_args( $atts, $defaults );
+	/**
+	 * Generate the user info attribute for the get_display_name() function
+	 *
+	 * @since 2.03.07
+	 * @param $atts
+	 *
+	 * @return string
+	 */
+	private static function prepare_user_info_attribute( $atts ) {
+		if ( isset( $atts['show'] ) ) {
+			if ( $atts['show'] === 'id' ) {
+				$user_info = 'ID';
+			} else {
+				$user_info = $atts['show'];
+			}
+		} else {
+			$user_info = 'display_name';
+		}
 
-		if ( strpos( $replace_with, ',' ) ) {
+		return $user_info;
+	}
+
+	public static function get_time_options( $values ) {
+		_deprecated_function( __FUNCTION__, '2.03.01', 'FrmProTimeField::get_time_options' );
+		return FrmProTimeField::get_time_options( $values );
+	}
+
+	public static function show_time_field( $field, $values ) {
+		_deprecated_function( __FUNCTION__, '2.03.01', 'FrmProTimeField::show_time_field' );
+		FrmProTimeField::show_time_field( $field, $values );
+	}
+
+	public static function time_array_to_string( &$value ) {
+		_deprecated_function( __FUNCTION__, '2.03.01', 'FrmProTimeField::time_array_to_string' );
+		FrmProTimeField::time_array_to_string( $value );
+	}
+
+	public static function is_time_empty( $value ) {
+		_deprecated_function( __FUNCTION__, '2.03.01', 'FrmProTimeField::is_time_empty' );
+		return FrmProTimeField::is_time_empty( $value );
+	}
+
+	public static function get_time_display_value( $replace_with, $atts, $field ) {
+		if ( empty( $replace_with ) ) {
+			return $replace_with;
+		}
+
+		$defaults = array(
+			'format' => FrmProAppHelper::get_time_format_for_field( $field ),
+		);
+
+		$atts = wp_parse_args( $atts, $defaults );
+		if ( is_array( $replace_with ) && isset( $replace_with['H'] ) ) {
+			FrmProTimeField::time_array_to_string( $replace_with );
+		} elseif ( ! is_array( $replace_with ) && strpos( $replace_with, ',' ) ) {
 			$replace_with = explode( ',', $replace_with );
 		}
 
-		if ( is_array( $replace_with ) ) {
-			foreach ( $replace_with as $k => $v ) {
-				$replace_with[ $k ] = FrmProAppHelper::format_time( $replace_with[ $k ], $atts['format'] );
-			}
-		} else {
-			$replace_with = FrmProAppHelper::format_time( $replace_with, $atts['format'] );
-		}
-		return $replace_with;
-
+		return self::format_values_in_array( $replace_with, $atts['format'], array( 'FrmProAppHelper', 'format_time' ) );
 	}
 
     public static function get_date_display_value($replace_with, $atts) {
@@ -3405,22 +2952,15 @@ DEFAULT_HTML;
         $atts = wp_parse_args($atts, $defaults);
 
         if ( ! isset($atts['time_ago']) ) {
-			if ( strpos( $replace_with, ',' ) ) {
+			if ( ! is_array( $replace_with ) && strpos( $replace_with, ',' ) ) {
 				$replace_with = explode( ',', $replace_with );
 			}
 
-            if ( is_array($replace_with) ) {
-                foreach ( $replace_with as $k => $v ) {
-                    $replace_with[$k] = self::get_date($v, $atts['format']);
-                }
-            } else {
-                $replace_with = self::get_date($replace_with, $atts['format']);
-            }
-            return $replace_with;
-        }
-
-        $replace_with = self::get_date($replace_with, 'Y-m-d H:i:s');
-        $replace_with = FrmAppHelper::human_time_diff( strtotime($replace_with), strtotime(date_i18n('Y-m-d')) );
+			$replace_with = self::format_values_in_array( $replace_with, $atts['format'], array( 'self', 'get_date' ) );
+		} else {
+			$replace_with = self::get_date( $replace_with, 'Y-m-d H:i:s' );
+			$replace_with = FrmAppHelper::human_time_diff( strtotime( $replace_with ), strtotime( date_i18n( 'Y-m-d' ) ), absint( $atts['time_ago'] ) );
+		}
 
         return $replace_with;
     }
@@ -4339,7 +3879,7 @@ DEFAULT_HTML;
 		return FrmField::is_repeating_field( $field );
 	}
 
-		public static function get_file_from_atts( $atts, $field, &$replace_with ) {
+	public static function get_file_from_atts( $atts, $field, &$replace_with ) {
 		_deprecated_function( __FUNCTION__, '2.0.19', 'FrmProFieldsHelper::get_file_html_from_atts' );
 		if ( $field->type == 'file' ) {
 			self::get_file_html_from_atts( $atts, $replace_with );
@@ -4388,5 +3928,130 @@ DEFAULT_HTML;
 	public static function load_hidden_sub_field_javascript( $field ) {
 		_deprecated_function( __FUNCTION__, '2.02.06', 'FrmProNestedFormsController::load_hidden_sub_field_javascript' );
 		FrmProNestedFormsController::load_hidden_sub_field_javascript( $field );
+	}
+
+	public static function check_conditional_shortcode(&$content, $replace_with, $atts, $tag, $condition = 'if', $args = array() ) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::check_conditional_shortcode( $content, $replace_with, $atts, $tag, $condition, $args );
+	}
+
+	public static function foreach_shortcode($replace_with, $args, &$repeat_content) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::foreach_shortcode( $replace_with, $args, $repeat_content );
+	}
+
+	public static function conditional_replace_with_value($replace_with, $atts, $field, $tag) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		return FrmProContent::conditional_replace_with_value( $replace_with, $atts, $field, $tag );
+	}
+
+	public static function trigger_shortcode_atts($atts, $display, $args, &$replace_with) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::trigger_shortcode_atts( $atts, $display, $args, $replace_with );
+	}
+
+	public static function atts_sanitize($replace_with) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		return FrmProContent::atts_sanitize( $replace_with );
+	}
+
+	public static function atts_sanitize_url($replace_with) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		return FrmProContent::atts_sanitize_url( $replace_with );
+	}
+
+	public static function atts_truncate($replace_with, $atts, $display, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		return FrmProContent::atts_truncate( $replace_with, $atts, $display, $args );
+	}
+
+	public static function atts_clickable($replace_with) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		return FrmProContent::atts_clickable( $replace_with );
+	}
+
+	public static function replace_shortcodes( $content, $entry, $shortcodes, $display = false, $show = 'one', $odd = '', $args = array() ) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		return FrmProContent::replace_shortcodes( $content, $entry, $shortcodes, $display, $show, $odd, $args );
+	}
+
+	public static function replace_single_shortcode($shortcodes, $short_key, $tag, $entry, $display, $args, &$content) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::replace_single_shortcode( $shortcodes, $short_key, $tag, $entry, $display, $args, $content );
+	}
+
+	public static function replace_calendar_date_shortcode($content, $date) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		return FrmProContent::replace_calendar_date_shortcode( $content, $date );
+	}
+
+	public static function do_shortcode_event_date(&$content, $atts, $shortcodes, $short_key, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_event_date( $content, $atts, $shortcodes, $short_key, $args );
+	}
+
+	public static function do_shortcode_entry_count(&$content, $atts, $shortcodes, $short_key, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_entry_count( $content, $atts, $shortcodes, $short_key, $args );
+	}
+
+	public static function do_shortcode_detaillink(&$content, $atts, $shortcodes, $short_key, $args, $display) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_detaillink( $content, $atts, $shortcodes, $short_key, $args, $display );
+	}
+
+	public static function do_shortcode_editlink(&$content, $atts, $shortcodes, $short_key, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_editlink( $content, $atts, $shortcodes, $short_key, $args );
+	}
+
+	public static function do_shortcode_deletelink(&$content, $atts, $shortcodes, $short_key, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_deletelink( $content, $atts, $shortcodes, $short_key, $args );
+	}
+
+	public static function do_shortcode_evenodd(&$content, $atts, $shortcodes, $short_key, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_evenodd( $content, $atts, $shortcodes, $short_key, $args );
+	}
+
+	public static function do_shortcode_post_id(&$content, $atts, $shortcodes, $short_key, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_post_id( $content, $atts, $shortcodes, $short_key, $args );
+	}
+
+	public static function do_shortcode_parent_id(&$content, $atts, $shortcodes, $short_key, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_parent_id( $content, $atts, $shortcodes, $short_key, $args );
+	}
+
+	public static function do_shortcode_id(&$content, $atts, $shortcodes, $short_key, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_id( $content, $atts, $shortcodes, $short_key, $args );
+	}
+
+	public static function do_shortcode_created_at(&$content, $atts, $shortcodes, $short_key, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_created_at( $content, $atts, $shortcodes, $short_key, $args );
+	}
+
+	public static function do_shortcode_updated_at(&$content, $atts, $shortcodes, $short_key, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_updated_at( $content, $atts, $shortcodes, $short_key, $args );
+	}
+
+	public static function do_shortcode_created_by(&$content, $atts, $shortcodes, $short_key, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_created_by( $content, $atts, $shortcodes, $short_key, $args );
+	}
+
+	public static function do_shortcode_updated_by(&$content, $atts, $shortcodes, $short_key, $args) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_updated_by( $content, $atts, $shortcodes, $short_key, $args );
+	}
+
+	public static function do_shortcode_is_draft( &$content, $atts, $shortcodes, $short_key, $args ) {
+		_deprecated_function( __FUNCTION__, '2.02.08', 'FrmProContent::' . __FUNCTION__ );
+		FrmProContent::do_shortcode_is_draft( $content, $atts, $shortcodes, $short_key, $args );
 	}
 }

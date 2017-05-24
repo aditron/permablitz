@@ -1,11 +1,9 @@
 <?php
 
-global $frm_update;
-$frm_update  = new FrmUpdatesController();
-
 $frmedd_update  = new FrmProEddController();
 
 // load the license form
+add_action( 'frm_upgrade_page', 'FrmProSettingsController::standalone_license_box' );
 if ( FrmAppHelper::is_admin_page('formidable-settings') ) {
     add_action('frm_before_settings', 'FrmProSettingsController::license_box', 1);
 }

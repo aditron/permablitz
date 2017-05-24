@@ -47,7 +47,8 @@ class FrmEntryMeta {
 
         global $wpdb;
 
-        $values = $where_values = array( 'item_id' => $entry_id, 'field_id' => $field_id );
+		$values = array( 'item_id' => $entry_id, 'field_id' => $field_id );
+		$where_values = $values;
         $values['meta_value'] = $meta_value;
         $values = apply_filters('frm_update_entry_meta', $values);
 		if ( is_array($values['meta_value']) ) {
@@ -67,8 +68,13 @@ class FrmEntryMeta {
 		$prev_values = FrmDb::get_col( $wpdb->prefix . 'frm_item_metas', array( 'item_id' => $entry_id, 'field_id !' => 0 ), 'field_id' );
 
         foreach ( $values as $field_id => $meta_value ) {
-            // set the value for the file upload field and add new tags (in Pro version)
-			$meta_value = apply_filters( 'frm_prepare_data_before_db', $meta_value, $field_id, $entry_id );
+			$field = false;
+			if ( ! empty( $field_id ) ) {
+				$field = FrmField::getOne( $field_id );
+			}
+
+			// set the value for the file upload field and add new tags (in Pro version)
+			$meta_value = apply_filters( 'frm_prepare_data_before_db', $meta_value, $field_id, $entry_id, compact( 'field' ) );
 
 			if ( $prev_values && in_array($field_id, $prev_values) ) {
 
@@ -172,13 +178,6 @@ class FrmEntryMeta {
         $result = stripslashes_deep($result);
 
         return $result;
-    }
-
-	public static function get_entry_metas( $entry_id ) {
-        _deprecated_function( __FUNCTION__, '1.07.10');
-
-        global $wpdb;
-		return FrmDb::get_col( $wpdb->prefix . 'frm_item_metas', array( 'item_id' => $entry_id ), 'meta_value' );
     }
 
     public static function get_entry_metas_for_field( $field_id, $order = '', $limit = '', $args = array() ) {
@@ -317,7 +316,8 @@ class FrmEntryMeta {
             return;
         }
 
-		$draft_where = $user_where = '';
+		$draft_where = '';
+		$user_where = '';
         if ( ! $args['is_draft'] ) {
 			$draft_where = $wpdb->prepare( ' AND e.is_draft=%d', 0 );
         } else if ( $args['is_draft'] == 1 ) {

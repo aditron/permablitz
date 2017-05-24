@@ -9,7 +9,7 @@
 
 	<p>Enhance your basic Formidable forms with a plethora of Pro field types and features. Create advanced forms and data-driven applications in no time at all.</p>
 	<p>Are you collecting data offline? Streamline your business by using your forms to get online. Whether you need surveys, polls, client contracts, mortgage calculators, or directories, we've got you covered. Save time by allowing clients to return and make changes to their own submissions, or let them contribute content to your site. Generate more leads by adding headings and page breaks, only showing the fields you need, and letting your clients repeat a section of fields as many times as they need.</p>
-	<p>Projects that once seemed impossible are within your reach with Pro. That project you’ve been dreaming of pursuing? Chances are <strong>Formidable Pro can handle it</strong>.</p>
+	<p>Projects that once seemed impossible are within your reach with Pro. That project you’ve been dreaming of pursuing? Chances are <strong>Formidable Pro can handle it</strong>.</p><br/>
 
 	<table class="wp-list-table widefat fixed striped frm_pricing">
 		<thead>
@@ -19,7 +19,7 @@
 				<th>
 					<h3><?php echo esc_attr( ucfirst( $price_info['name'] ) ) ?></h3>
 					<h4>$<?php echo esc_attr( $price_info['price'] ) ?></h4>
-					<a href="<?php echo esc_url( FrmAppHelper::make_affiliate_url( 'https://formidablepro.com/checkout?edd_action=add_to_cart&download_id=93790' ) ) ?>&amp;edd_options[price_id]=<?php echo absint( $price_info['id'] ) ?>" class="button-primary" target="_blank">
+					<a href="<?php echo esc_url( FrmAppHelper::make_affiliate_url( 'https://formidableforms.com/checkout?edd_action=add_to_cart&download_id=93790' ) ) ?>&amp;edd_options[price_id]=<?php echo absint( $price_info['id'] ) ?>" class="button-primary" target="_blank">
 						<?php _e( 'Get Started', 'formidable' ) ?>
 					</a>
 				</th>
@@ -58,13 +58,15 @@
 			<tr>
 				<th>Included AddOns</th>
 				<td>None</td>
-				<td><a href="<?php echo esc_url( FrmAppHelper::make_affiliate_url('https://formidablepro.com/pricing/#addon-lists') ) ?>" target="_blank">Premium Addons</a></td>
-				<td><a href="<?php echo esc_url( FrmAppHelper::make_affiliate_url('https://formidablepro.com/pricing/#addon-lists') ) ?>" target="_blank">Advanced Addons</a></td>
-				<td><a href="<?php echo esc_url( FrmAppHelper::make_affiliate_url('https://formidablepro.com/pricing/#addon-lists') ) ?>" target="_blank">Enterprise Addons</a></td>
+				<td><a href="<?php echo esc_url( FrmAppHelper::make_affiliate_url('https://formidableforms.com/pricing/#addon-lists') ) ?>" target="_blank">Premium Addons</a></td>
+				<td><a href="<?php echo esc_url( FrmAppHelper::make_affiliate_url('https://formidableforms.com/pricing/#addon-lists') ) ?>" target="_blank">Advanced Addons</a></td>
+				<td><a href="<?php echo esc_url( FrmAppHelper::make_affiliate_url('https://formidableforms.com/pricing/#addon-lists') ) ?>" target="_blank">Enterprise Addons</a></td>
 			</tr>
 		</tbody>
 	</table>
 	<br/>
+
+	<?php do_action( 'frm_upgrade_page' ); ?>
 
 	<h2>Features</h2>
 	<table class="wp-list-table widefat fixed striped">

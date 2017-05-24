@@ -45,6 +45,16 @@
         </select>
 </p>
 
+<p>
+	<label class="frm_left_label"><?php _e( 'Admin menu label', 'formidable' ); ?></label>
+	<input type="text" name="frm_menu" id="frm_menu" value="<?php echo esc_attr( $frm_settings->menu ) ?>" />
+	<?php if ( is_multisite() && is_super_admin() ) { ?>
+		<label for="frm_mu_menu">
+			<input type="checkbox" name="frm_mu_menu" id="frm_mu_menu" value="1" <?php checked( $frm_settings->mu_menu, 1 ) ?> />
+			<?php _e( 'Use this menu name site-wide', 'formidable' ); ?>
+		</label>
+	<?php } ?>
+</p>
 <!--
     <td><?php _e( 'Pretty Permalinks', 'formidable' ); ?></td>
     <td>

@@ -189,8 +189,8 @@ class FrmEntriesHelper {
         preg_match_all("/\[(default-message|default_message)\b(.*?)(?:(\/))?\]/s", $message, $shortcodes, PREG_PATTERN_ORDER);
 
         foreach ( $shortcodes[0] as $short_key => $tag ) {
-            $add_atts = shortcode_parse_atts( $shortcodes[2][ $short_key ] );
-            if ( $add_atts ) {
+			$add_atts = FrmShortcodeHelper::get_shortcode_attribute_array( $shortcodes[2][ $short_key ] );
+			if ( ! empty( $add_atts ) ) {
                 $this_atts = array_merge($atts, $add_atts);
             } else {
                 $this_atts = $atts;
@@ -478,7 +478,7 @@ class FrmEntriesHelper {
 
 			if ( is_array($val) ) {
 				$val = FrmAppHelper::array_flatten( $val );
-			    $val = implode(',', $val);
+				$val = implode( ', ', $val );
 			}
 
 			$content .= $val;
@@ -497,9 +497,8 @@ class FrmEntriesHelper {
 		FrmEntryFormat::flatten_multi_file_upload( $field, $val );
 	}
 
-	public static function textarea_display_value( &$value, $type, $plain_text ) {
-		_deprecated_function( __FUNCTION__, '2.0.9', 'FrmEntryFormat::textarea_display_value' );
-		FrmEntryFormat::textarea_display_value( $type, $plain_text, $value );
+	public static function textarea_display_value() {
+		_deprecated_function( __FUNCTION__, '2.0.9', 'custom code' );
 	}
 
 	public static function fill_entry_user_info( $atts, array &$values ) {

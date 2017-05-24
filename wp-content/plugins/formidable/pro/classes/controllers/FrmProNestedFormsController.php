@@ -267,8 +267,8 @@ class FrmProNestedFormsController {
 	 * @param array|string $value_array
 	 */
 	private static function insert_hidden_nested_form_fields( $field, $field_name, $value_array ) {
-		if ( ! is_array( $value_array ) && $value_array === '' ) {
-			self::insert_basic_hidden_field( $field_name, $value_array, $field['html_id'] );
+		if ( ! is_array( $value_array ) ) {
+			self::insert_basic_hidden_field( $field_name, '', $field['html_id'] );
 			return;
 		}
 
@@ -338,11 +338,17 @@ class FrmProNestedFormsController {
 	 * @param string $id
 	 */
 	private static function insert_basic_hidden_field( $name, $value, $id ) {
+		if ( strpos( $name, '[form]' ) !== false ) {
+			$class = 'frm_dnc';
+		} else {
+			$class = '';
+		}
+
 		if ( $id ) {
 			?><input type="hidden" name="<?php echo esc_attr( $name ) ?>" id="<?php echo esc_attr( $id ) ?>" value="<?php echo esc_attr( $value ) ?>" />
 			<?php
 		} else {
-			?><input type="hidden" name="<?php echo esc_attr( $name ) ?>" value="<?php echo esc_attr( $value ) ?>"/>
+			?><input type="hidden" name="<?php echo esc_attr( $name ) ?>" value="<?php echo esc_attr( $value )?>" class="<?php echo esc_attr( $class )?>" />
 			<?php
 		}
 	}
@@ -603,7 +609,7 @@ class FrmProNestedFormsController {
 	 * @param $args
 	 */
 	private static function add_hidden_repeat_row_id( $args ) {
-		echo '<input type="hidden" name="item_meta[' . $args['parent_field']['id'] . '][row_ids][]" value="' . esc_attr( $args['i'] ) . '" />';
+		echo '<input type="hidden" name="item_meta[' . esc_attr( $args['parent_field']['id'] ) . '][row_ids][]" value="' . esc_attr( $args['i'] ) . '" />';
 	}
 
 	/**

@@ -85,6 +85,7 @@
 
 		    <p><label class="frm_left_label"><?php _e( 'reCAPTCHA Language', 'formidable' ) ?></label>
 			<select name="frm_re_lang" id="frm_re_lang">
+				<option value="" <?php selected( $frm_settings->re_lang, '' ) ?>><?php esc_html_e( 'Browser Default', 'formidable' ); ?></option>
 			    <?php foreach ( $captcha_lang as $lang => $lang_name ) { ?>
 				<option value="<?php echo esc_attr($lang) ?>" <?php selected($frm_settings->re_lang, $lang) ?>><?php echo esc_html( $lang_name ) ?></option>
                 <?php } ?>
@@ -150,15 +151,11 @@
         <?php do_action('frm_settings_form', $frm_settings); ?>
 
         <?php if ( ! FrmAppHelper::pro_is_installed() ) { ?>
-        <div class="clear"></div>
-        <h3><?php _e( 'Miscellaneous', 'formidable' ) ?></h3>
-        <?php } ?>
-        <p><label class="frm_left_label"><?php _e( 'Admin menu label', 'formidable' ); ?></label>
-            <input type="text" name="frm_menu" id="frm_menu" value="<?php echo esc_attr($frm_settings->menu) ?>" />
-            <?php if ( is_multisite() && is_super_admin() ) { ?>
-            <label for="frm_mu_menu"><input type="checkbox" name="frm_mu_menu" id="frm_mu_menu" value="1" <?php checked($frm_settings->mu_menu, 1) ?> /> <?php _e( 'Use this menu name site-wide', 'formidable' ); ?></label>
-            <?php } ?>
-        </p>
+			<div class="clear"></div>
+			<h3><?php _e( 'Miscellaneous', 'formidable' ) ?></h3>
+			<input type="hidden" name="frm_menu" id="frm_menu" value="<?php echo esc_attr( $frm_settings->menu ) ?>" />
+			<input type="hidden" name="frm_mu_menu" id="frm_mu_menu" value="<?php echo esc_attr( $frm_settings->mu_menu ) ?>" />
+		<?php } ?>
 
         <p><label class="frm_left_label"><?php _e( 'Preview Page', 'formidable' ); ?></label>
         <?php FrmAppHelper::wp_pages_dropdown('frm-preview-page-id', $frm_settings->preview_page_id ) ?>

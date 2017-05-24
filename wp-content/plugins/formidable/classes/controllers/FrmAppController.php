@@ -24,37 +24,38 @@ class FrmAppController {
     }
 
 	public static function get_form_nav( $form, $show_nav = false, $title = 'show' ) {
-        global $pagenow, $frm_vars;
-
 		$show_nav = FrmAppHelper::get_param( 'show_nav', $show_nav, 'get', 'absint' );
-        if ( empty( $show_nav ) ) {
+        if ( empty( $show_nav ) || ! $form ) {
             return;
         }
 
-		$current_page = isset( $_GET['page'] ) ? FrmAppHelper::simple_get( 'page', 'sanitize_title' ) : FrmAppHelper::simple_get( 'post_type', 'sanitize_title', 'None' );
+		FrmForm::maybe_get_form( $form );
+		if ( ! is_object( $form ) ) {
+			return;
+		}
+
+		$id = $form->id;
+		$current_page = self::get_current_page();
+		$nav_items = self::get_form_nav_items( $form );
+
+		include( FrmAppHelper::plugin_path() . '/classes/views/shared/form-nav.php' );
+	}
+
+	private static function get_current_page() {
+		global $pagenow;
+
+		$page = FrmAppHelper::simple_get( 'page', 'sanitize_title' );
+		$post_type = FrmAppHelper::simple_get( 'post_type', 'sanitize_title', 'None' );
+		$current_page = isset( $_GET['page'] ) ? $page : $post_type;
 		if ( $pagenow == 'post.php' || $pagenow == 'post-new.php' ) {
 			$current_page = 'frm_display';
 		}
 
-        if ( $form ) {
-			FrmForm::maybe_get_form( $form );
-
-            if ( is_object( $form ) ) {
-                $id = $form->id;
-            }
-        }
-
-        if ( ! isset( $id ) ) {
-            $form = $id = false;
-        }
-
-		$nav_items = self::get_form_nav_items( $form );
-
-        include( FrmAppHelper::plugin_path() . '/classes/views/shared/form-nav.php' );
-    }
+		return $current_page;
+	}
 
 	private static function get_form_nav_items( $form ) {
-		$id = ( $form && $form->parent_form_id ) ? $form->parent_form_id : $form->id;
+		$id = $form->parent_form_id ? $form->parent_form_id : $form->id;
 
 		$nav_items = array(
 			array(
@@ -104,7 +105,7 @@ class FrmAppController {
             FrmAppHelper::load_admin_wide_js();
 
             // user is authorized, but running free version
-            $inst_install_url = 'https://formidablepro.com/knowledgebase/install-formidable-forms/';
+            $inst_install_url = 'https://formidableforms.com/knowledgebase/install-formidable-forms/';
         ?>
 <div class="error" class="frm_previous_install">
 		<?php
@@ -137,7 +138,7 @@ class FrmAppController {
 <div class="update-nag frm-update-to-pro">
 	<?php echo FrmAppHelper::kses( $tip['tip'] ) ?>
 	<span><?php echo FrmAppHelper::kses( $tip['call'] ) ?></span>
-	<a href="<?php echo esc_url( FrmAppHelper::make_affiliate_url('https://formidablepro.com?banner=1&tip=' . absint( $tip['num'] ) ) ) ?>" class="button">Upgrade to Pro</a>
+	<a href="<?php echo esc_url( FrmAppHelper::make_affiliate_url('https://formidableforms.com?banner=1&tip=' . absint( $tip['num'] ) ) ) ?>" class="button">Upgrade to Pro</a>
 </div>
 <?php
 		}
@@ -162,8 +163,11 @@ class FrmAppController {
 	 */
 	public static function needs_update() {
 		$db_version = (int) get_option( 'frm_db_version' );
-		$pro_db_version = FrmAppHelper::pro_is_installed() ? get_option( 'frmpro_db_version' ) : false;
-		return ( ( $db_version < FrmAppHelper::$db_version ) || ( FrmAppHelper::pro_is_installed() && (int) $pro_db_version < FrmAppHelper::$pro_db_version ) );
+		$needs_upgrade = ( (int) $db_version < (int) FrmAppHelper::$db_version );
+		if ( ! $needs_upgrade ) {
+			$needs_upgrade = apply_filters( 'frm_db_needs_upgrade', $needs_upgrade );
+		}
+		return $needs_upgrade;
 	}
 
 	/**
@@ -233,7 +237,6 @@ class FrmAppController {
 		wp_register_style( 'formidable-admin', FrmAppHelper::plugin_url() . '/css/frm_admin.css', array(), $version );
         wp_register_script( 'bootstrap_tooltip', FrmAppHelper::plugin_url() . '/js/bootstrap.min.js', array( 'jquery' ), '3.3.4' );
 		wp_register_style( 'formidable-grids', FrmAppHelper::plugin_url() . '/css/frm_grids.css', array(), $version );
-		wp_register_style( 'formidable-dropzone', FrmAppHelper::plugin_url() . '/css/dropzone.css', array(), $version );
 
 		// load multselect js
 		wp_register_script( 'bootstrap-multiselect', FrmAppHelper::plugin_url() . '/js/bootstrap-multiselect.js', array( 'jquery', 'bootstrap_tooltip' ), '0.9.8', true );
@@ -293,16 +296,15 @@ class FrmAppController {
     	return preg_replace_callback( $regex, 'FrmAppHelper::widget_text_filter_callback', $content );
     }
 
-    public static function front_head() {
-        if ( is_multisite() ) {
-            $old_db_version = get_option( 'frm_db_version' );
-            $pro_db_version = FrmAppHelper::pro_is_installed() ? get_option( 'frmpro_db_version' ) : false;
-            if ( ( (int) $old_db_version < (int) FrmAppHelper::$db_version ) ||
-                ( FrmAppHelper::pro_is_installed() && (int) $pro_db_version < (int) FrmAppHelper::$pro_db_version ) ) {
-                self::install( $old_db_version );
-            }
-        }
-    }
+	/**
+	 * Deprecated in favor of wpmu_upgrade_site
+	 */
+	public static function front_head() {
+		_deprecated_function( __FUNCTION__, '2.3' );
+		if ( is_multisite() && self::needs_update() ) {
+			self::install();
+		}
+	}
 
 	public static function localize_script( $location ) {
 		_deprecated_function( __FUNCTION__, '2.0.9', 'FrmAppHelper::localize_script' );
